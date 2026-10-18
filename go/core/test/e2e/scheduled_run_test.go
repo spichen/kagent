@@ -19,7 +19,7 @@ import (
 	a2atype "github.com/a2aproject/a2a-go/v2/a2a"
 	a2apb "github.com/a2aproject/a2a-go/v2/a2apb/v1"
 	"github.com/a2aproject/a2a-go/v2/a2apb/v1/pbconv"
-	"github.com/agent-substrate/substrate/pkg/proto/ateapipb"
+	"go.ate.dev/substrate/pkg/proto/ateapipb"
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/grpc/codes"
@@ -311,7 +311,7 @@ func (f *scheduledFixture) assertQuiescent(t *testing.T, execution *apiv1alpha1.
 			for _, actor := range page.GetActors() {
 				if actor.GetMetadata().GetName() == actorName && actor.GetMetadata().GetAtespace() == atespace {
 					state := actor.GetStatus().GetState()
-					return state == ateapipb.ActorState_ACTOR_STATE_SUSPENDED || state == ateapipb.ActorState_ACTOR_STATE_PAUSED, nil
+					return state == ateapipb.ActorState_ACTOR_STATE_SUSPENDED, nil
 				}
 			}
 			token = page.GetPage().GetNextPageToken()

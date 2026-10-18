@@ -164,7 +164,7 @@ func (c *Compiler) compileConfiguration(ctx context.Context, agentName string, h
 		return nil, &WorkerPoolNotFoundError{WorkerPool: workerKey}
 	}
 	result.AgentName = agentName
-	result.SandboxClass = (*workerPool).Spec.SandboxClass
+	result.SandboxClass = (*workerPool).Spec.DefaultSandboxClass()
 	return result, nil
 }
 

@@ -701,8 +701,6 @@ github.com/kagent-dev/mockllm v0.1.0 h1:EkBE7BhMnL4Unfu78OazQVDAWi00aWXiswErkVoE
 github.com/kagent-dev/mockllm v0.1.0/go.mod h1:RLp2ZL/UPY6qqbHNogvf70apXX9R670tESJdDuIli9A=
 github.com/kagent-dev/mockmcp v0.0.0-20260520211643-dcd475b74085 h1:5bYxRc6K6+JiFMYGSJpQ7y18PzTGXUmUtVXY7Fqh0Ew=
 github.com/kagent-dev/mockmcp v0.0.0-20260520211643-dcd475b74085/go.mod h1:vTMste7c+XiDOQyhe6iGPKLbMy3chY/h2fL3Dox5fAE=
-github.com/kagent-dev/substrate v0.5.0-alpha2 h1:x7gy3PS8LJ5LDcw9yo7vYVZoOfjwJ5vEVfNXP2WehBQ=
-github.com/kagent-dev/substrate v0.5.0-alpha2/go.mod h1:ksApwzcnhkTv0IKnwdNYwcQcYGgSsPR4wdYw97+q2wk=
 github.com/karamaru-alpha/copyloopvar v1.2.2 h1:yfNQvP9YaGQR7VaWLYcfZUlRP2eo2vhExWKxD/fP6q0=
 github.com/karamaru-alpha/copyloopvar v1.2.2/go.mod h1:oY4rGZqZ879JkJMtX3RRkcXRkmUvH0x35ykgaKgsgJY=
 github.com/keybase/go-keychain v0.0.1 h1:way+bWYa6lDppZoZcgMbYsvC7GxljxrskdNInRtuthU=
@@ -1095,6 +1093,8 @@ github.com/spf13/pflag v1.0.10 h1:4EBh2KAYBwaONj6b2Ye1GiHfwjqyROoF4RwYO+vPwFk=
 github.com/spf13/pflag v1.0.10/go.mod h1:McXfInJRrz4CZXVZOBLb0bTZqETkiAhM9Iw0y3An2Bg=
 github.com/spf13/viper v1.21.0 h1:x5S+0EU27Lbphp4UKm1C+1oQO+rKx36vfCoaVebLFSU=
 github.com/spf13/viper v1.21.0/go.mod h1:P0lhsswPGWD/1lZJ9ny3fYnVqxiegrlNrEmgLjbTCAY=
+github.com/spichen/substrate v0.0.0-20261018133208-7542bb219761 h1:Rn2loofZ4Npwsl5zrsBAS52chdI1qVJFVqr08jYQOCU=
+github.com/spichen/substrate v0.0.0-20261018133208-7542bb219761/go.mod h1:EktaeScxg724tF4cjtLV8kdz2xN3FH8NOTk/A95jSBY=
 github.com/ssgreg/nlreturn/v2 v2.2.1 h1:X4XDI7jstt3ySqGU86YGAURbxw3oTDPK9sPEi6YEwQ0=
 github.com/ssgreg/nlreturn/v2 v2.2.1/go.mod h1:E/iiPB78hV7Szg2YfRgyIrk1AD6JVMTRkkxBiELzh2I=
 github.com/standard-webhooks/standard-webhooks/libraries v0.0.1 h1:uOfcYT+3QungH6tIGSVCR/Y3KJmgJiHcojJbMTPDZAI=

@@ -8,8 +8,8 @@ import (
 	"strings"
 	"testing"
 
-	atev1alpha1 "github.com/agent-substrate/substrate/pkg/api/v1alpha1"
 	"github.com/stretchr/testify/require"
+	atev1alpha1 "go.ate.dev/substrate/pkg/api/v1alpha1"
 	"istio.io/istio/pkg/kube/krt"
 	"istio.io/istio/pkg/kube/krt/krttest"
 	corev1 "k8s.io/api/core/v1"
@@ -286,15 +286,15 @@ func TestCompileAgentResolvesWorkerPoolSandboxClass(t *testing.T) {
 				t.Run(tt.name, func(t *testing.T) {
 					pool := &atev1alpha1.WorkerPool{
 						ObjectMeta: metav1.ObjectMeta{Namespace: "test", Name: "selected"},
-						Spec:       atev1alpha1.WorkerPoolSpec{SandboxClass: tt.class},
+						Spec:       atev1alpha1.WorkerPoolSpec{SandboxClasses: []atev1alpha1.WorkerPoolSandboxClass{{Name: tt.class}}},
 					}
 					originalPool := pool.DeepCopy()
 					objects := []any{
 						model,
 						harness,
 						&corev1.Secret{ObjectMeta: metav1.ObjectMeta{Namespace: "test", Name: "model-auth"}, Data: map[string][]byte{"api-key": []byte("secret")}},
-						&atev1alpha1.WorkerPool{ObjectMeta: metav1.ObjectMeta{Namespace: "other", Name: "selected"}, Spec: atev1alpha1.WorkerPoolSpec{SandboxClass: atev1alpha1.SandboxClassMicroVM}},
-						&atev1alpha1.WorkerPool{ObjectMeta: metav1.ObjectMeta{Namespace: "test", Name: "unselected"}, Spec: atev1alpha1.WorkerPoolSpec{SandboxClass: atev1alpha1.SandboxClassMicroVM}},
+						&atev1alpha1.WorkerPool{ObjectMeta: metav1.ObjectMeta{Namespace: "other", Name: "selected"}, Spec: atev1alpha1.WorkerPoolSpec{SandboxClasses: []atev1alpha1.WorkerPoolSandboxClass{{Name: atev1alpha1.SandboxClassMicroVM}}}},
+						&atev1alpha1.WorkerPool{ObjectMeta: metav1.ObjectMeta{Namespace: "test", Name: "unselected"}, Spec: atev1alpha1.WorkerPoolSpec{SandboxClasses: []atev1alpha1.WorkerPoolSandboxClass{{Name: atev1alpha1.SandboxClassMicroVM}}}},
 					}
 					if !tt.missing {
 						objects = append(objects, pool)

@@ -1,7 +1,14 @@
 import { RuntimeState, RuntimeOperation } from "@/generated/kagent/api/v1alpha1/runtime_pb";
 import { AgentService, type Agent as PbAgent } from "@/generated/kagent/api/v1alpha1/agents_pb";
 import type { Agent, AgentResource } from "../domain/agents";
-import { ActorState, type Actor as PbActor, type ActorTemplate as PbActorTemplate, type Worker as PbWorker, SandboxClass } from "@/generated/ateapi_pb";
+import {
+  ActorState,
+  SnapshotOwner,
+  SnapshotStorageStatus,
+  type Actor as PbActor,
+  type ActorTemplate as PbActorTemplate,
+  type Worker as PbWorker,
+} from "@/generated/ateapi_pb";
 import { ScheduledRunService } from "@/generated/kagent/api/v1alpha1/scheduled_runs_pb";
 /**
  * What each operation id actually calls.
@@ -1237,23 +1244,50 @@ const agentBuildingBlocks: Pick<
 
 // region Cluster
 
-/** Convert upstream inventory rows for the UI. */
+/** Labels an ActorTemplate uses to pin the WorkerPool it runs on. */
+const workerPoolNameLabel = "kagent.dev/worker-pool-name";
+const workerPoolNamespaceLabel = "kagent.dev/worker-pool-namespace";
+
 function toWorkerPoolEntry(pool: PbSubstrateWorkerPool): SubstrateWorkerPoolEntry {
   const ref = required(pool.ref, "Substrate", "worker pool reference");
-  const resource = unwrap<{ spec: { replicas: number; workerImage: string } }>(
+  const resource = unwrap<{
+    spec: {
+      replicas: number;
+      workerImage: string;
+      sandboxClasses?: { name?: string }[] | null;
+    };
+  }>(
     pool.resource, "Substrate", "worker pool resource",
   );
   const spec = required(resource.spec, "Substrate", "worker pool spec");
+  const sandboxClass = orUndefined(spec.sandboxClasses?.[0]?.name);
   return {
     namespace: ref.namespace,
     name: ref.name,
     replicas: spec.replicas,
     ateomImage: spec.workerImage,
+    ...(sandboxClass ? { sandboxClass } : {}),
   };
+}
+
+/**
+ * The sandbox class lives on the WorkerPool. An ActorTemplate names that pool
+ * with its worker selector and does not carry a class of its own.
+ */
+function sandboxClassForTemplate(
+  actorTemplate: PbActorTemplate,
+  pools: readonly SubstrateWorkerPoolEntry[],
+): string | undefined {
+  const labels = actorTemplate.workerSelector?.matchLabels ?? {};
+  const name = labels[workerPoolNameLabel];
+  const namespace = labels[workerPoolNamespaceLabel];
+  if (!name || !namespace) return undefined;
+  return pools.find((pool) => pool.namespace === namespace && pool.name === name)?.sandboxClass;
 }
 
 function toActorTemplateEntry(
   actorTemplate: PbActorTemplate,
+  pools: readonly SubstrateWorkerPoolEntry[],
 ): SubstrateActorTemplateEntry {
   const metadata = required(
     actorTemplate.metadata,
@@ -1268,10 +1302,7 @@ function toActorTemplateEntry(
       ? "Failed"
       : golden?.goldenTag ? "Ready" : "Pending",
     goldenTag: golden?.goldenTag ? `${golden.goldenTag.atespace}/${golden.goldenTag.name}` : undefined,
-    sandboxClass:
-      SandboxClass[
-        actorTemplate.sandboxConfig?.sandboxClass ?? SandboxClass.UNSPECIFIED
-      ]?.toLowerCase(),
+    sandboxClass: sandboxClassForTemplate(actorTemplate, pools),
     workerSelector: orUndefined(
       Object.entries(actorTemplate.workerSelector?.matchLabels ?? {})
         .sort(([left], [right]) => (left < right ? -1 : left > right ? 1 : 0))
@@ -1288,12 +1319,38 @@ const ACTOR_STATUS_LABELS: Record<ActorState, string> = {
   [ActorState.RUNNING]: "Running",
   [ActorState.SUSPENDING]: "Suspending",
   [ActorState.SUSPENDED]: "Suspended",
-  [ActorState.PAUSING]: "Pausing",
-  [ActorState.PAUSED]: "Paused",
   [ActorState.CRASHED]: "ACTOR_STATE_CRASHED",
   [ActorState.DELETING]: "ACTOR_STATE_DELETING",
   [ActorState.REVERTING]: "Reverting",
 };
+
+/**
+ * The newest completed actor-owned snapshot is the durable copy. The newest
+ * pending snapshot, of either owner, is the one still being stored.
+ */
+function actorSnapshotFields(actor: PbActor): Pick<SubstrateActorEntry, "latestSnapshot" | "inProgressSnapshot"> {
+  let latest: { generation: number; uri: string } | undefined;
+  let pending: { generation: number; uuid: string } | undefined;
+  for (const snapshot of actor.status?.snapshots ?? []) {
+    const storage = snapshot.durableSnapshot;
+    const uri = storage?.object?.snapshotUri;
+    if (
+      snapshot.owner === SnapshotOwner.ACTOR &&
+      storage?.status === SnapshotStorageStatus.COMPLETED &&
+      uri
+    ) {
+      if (latest === undefined || snapshot.generation > latest.generation) {
+        latest = { generation: snapshot.generation, uri };
+      }
+    }
+    if (storage?.status === SnapshotStorageStatus.PENDING && snapshot.uuid) {
+      if (pending === undefined || snapshot.generation > pending.generation) {
+        pending = { generation: snapshot.generation, uuid: snapshot.uuid };
+      }
+    }
+  }
+  return { latestSnapshot: latest?.uri, inProgressSnapshot: pending?.uuid };
+}
 
 function toActorEntry(actor: PbActor): SubstrateActorEntry {
   const metadata = required(actor.metadata, "Substrate", "actor metadata");
@@ -1308,9 +1365,8 @@ function toActorEntry(actor: PbActor): SubstrateActorEntry {
     ateomPodNamespace: orUndefined(assignment?.workerNamespace),
     ateomPodName: orUndefined(assignment?.workerPod),
     ateomPodIp: orUndefined(assignment?.workerPodIps[0]),
-    latestSnapshot: orUndefined(actor.status?.externalSnapshot?.snapshotUri),
     workerPoolName: orUndefined(assignment?.workerPool),
-    inProgressSnapshot: orUndefined(actor.status?.inProgressLocalSnapshotName),
+    ...actorSnapshotFields(actor),
     version: toNumber(metadata.version),
   };
 }
@@ -1367,10 +1423,13 @@ const cluster: Pick<
         call("substrate.summary", options),
       ),
     );
+    const workerPools = list(response.workerPools).map(toWorkerPoolEntry);
     return {
       ateApiError: orUndefined(response.ateApiError),
-      workerPools: list(response.workerPools).map(toWorkerPoolEntry),
-      actorTemplates: list(response.actorTemplates).map(toActorTemplateEntry),
+      workerPools,
+      actorTemplates: list(response.actorTemplates).map((template) =>
+        toActorTemplateEntry(template, workerPools),
+      ),
       actorCount: toNumber(response.actorCount) ?? 0,
       workerCount: toNumber(response.workerCount) ?? 0,
       runningActorCount: toNumber(response.runningActorCount) ?? 0,

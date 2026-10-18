@@ -10,7 +10,7 @@ import (
 	"time"
 
 	"github.com/a2aproject/a2a-go/v2/a2a"
-	"github.com/agent-substrate/substrate/pkg/proto/ateapipb"
+	"go.ate.dev/substrate/pkg/proto/ateapipb"
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/require"
 
@@ -188,7 +188,7 @@ func TestQuiescenceDrainsConcurrentSettlementsAcrossReplicas(t *testing.T) {
 			require.NoError(t, err)
 			require.Equal(t, "s3://snapshots/snapshot-1", snapshot.URI)
 		} else {
-			require.Equal(t, ateapipb.ActorState_ACTOR_STATE_PAUSED, actor.Status.State)
+			require.Equal(t, ateapipb.ActorState_ACTOR_STATE_SUSPENDED, actor.Status.State)
 		}
 	}
 }

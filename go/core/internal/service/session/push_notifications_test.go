@@ -12,7 +12,7 @@ import (
 
 	"github.com/a2aproject/a2a-go/v2/a2a"
 	"github.com/a2aproject/a2a-go/v2/a2apb/v1/pbconv"
-	"github.com/agent-substrate/substrate/pkg/proto/ateapipb"
+	"go.ate.dev/substrate/pkg/proto/ateapipb"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/protobuf/proto"
 	"k8s.io/apimachinery/pkg/types"

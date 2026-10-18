@@ -4,11 +4,10 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"strings"
 	"time"
 
-	"github.com/agent-substrate/substrate/pkg/proto/ateapipb"
 	"github.com/google/uuid"
+	"go.ate.dev/substrate/pkg/proto/ateapipb"
 
 	apiv1alpha1 "github.com/kagent-dev/kagent/go/api/gen/kagent/api/v1alpha1"
 	"github.com/kagent-dev/kagent/go/core/internal/database"
@@ -69,7 +68,7 @@ func (w *ActorWorkflow) Pause(ctx context.Context, session *apiv1alpha1.Session)
 	if err != nil {
 		return fmt.Errorf("pause Actor %s/%s: %w", atespace, name, err)
 	}
-	if !validActorIdentity(actor, revision, name) || actor.GetMetadata().GetUid() != current.GetMetadata().GetUid() || actor.GetStatus().GetState() != ateapipb.ActorState_ACTOR_STATE_PAUSED {
+	if !validActorIdentity(actor, revision, name) || actor.GetMetadata().GetUid() != current.GetMetadata().GetUid() || actor.GetStatus().GetState() != ateapipb.ActorState_ACTOR_STATE_SUSPENDED {
 		return fmt.Errorf("pause Actor %s/%s returned status %s", atespace, name, actor.GetStatus().GetState())
 	}
 	return nil
@@ -102,17 +101,13 @@ func (w *ActorWorkflow) Quiesce(ctx context.Context, session *apiv1alpha1.Sessio
 	if !validActorIdentity(actor, revision, name) || metadata.GetUid() != current.GetMetadata().GetUid() {
 		return nil, fmt.Errorf("suspend actor %s/%s returned invalid identity", atespace, name)
 	}
-	snapshot := actor.GetStatus().GetExternalSnapshot()
-	if snapshot.GetSnapshotUri() == "" {
-		return nil, fmt.Errorf("suspend Actor %s/%s returned no snapshot", atespace, name)
-	}
-	scope := snapshot.GetContentScope()
-	if scope != ateapipb.SnapshotContentScope_SNAPSHOT_CONTENT_SCOPE_FULL && scope != ateapipb.SnapshotContentScope_SNAPSHOT_CONTENT_SCOPE_DATA {
-		return nil, fmt.Errorf("actor %s/%s returned invalid snapshot content scope %s", atespace, name, scope)
+	snapshot := substrate.ActorDurableSnapshot(actor)
+	scope, scopeOK := substrate.SnapshotContentScope(snapshot)
+	if substrate.SnapshotURI(snapshot) == "" || !scopeOK {
+		return nil, fmt.Errorf("suspend Actor %s/%s returned no durable snapshot", atespace, name)
 	}
 	return &database.SessionTaskSnapshot{
-		Atespace: atespace, URI: snapshot.GetSnapshotUri(),
-		ContentScope: strings.TrimPrefix(scope.String(), "SNAPSHOT_CONTENT_SCOPE_"),
+		Atespace: atespace, URI: substrate.SnapshotURI(snapshot), ContentScope: scope,
 	}, nil
 }
 
@@ -194,7 +189,7 @@ func (w *ActorWorkflow) execute(ctx context.Context, operation *database.Session
 		}
 		creation = &substrate.ActorCreation{EgressPolicy: policy}
 		if snapshot != nil {
-			creation.Snapshot = &substrate.ActorSnapshot{Tag: &ateapipb.ObjectRef{Atespace: snapshot.Atespace, Name: tagName}, URI: snapshot.URI, ContentScope: ateapipb.SnapshotContentScope_SNAPSHOT_CONTENT_SCOPE_DATA}
+			creation.Snapshot = &substrate.ActorSnapshot{Tag: &ateapipb.ObjectRef{Atespace: snapshot.Atespace, Name: tagName}, URI: snapshot.URI, ContentScope: snapshot.ContentScope}
 		}
 	}
 	prepare := substrate.PrepareActorTransition

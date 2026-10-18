@@ -9,10 +9,10 @@ import (
 
 	"github.com/a2aproject/a2a-go/v2/a2a"
 	"github.com/a2aproject/a2a-go/v2/a2apb/v1"
-	"github.com/agent-substrate/substrate/pkg/proto/ateapipb"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/stretchr/testify/require"
+	"go.ate.dev/substrate/pkg/proto/ateapipb"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/proto"
@@ -47,7 +47,7 @@ func TestActorWorkflowLifecycle(t *testing.T) {
 	if err := workflow.Pause(context.Background(), created); err != nil {
 		t.Fatal(err)
 	}
-	if actor := actors.actors[actorKey("team-a", substrate.ActorName(session.GetId()))]; actor.GetStatus().GetState() != ateapipb.ActorState_ACTOR_STATE_PAUSED {
+	if actor := actors.actors[actorKey("team-a", substrate.ActorName(session.GetId()))]; actor.GetStatus().GetState() != ateapipb.ActorState_ACTOR_STATE_SUSPENDED {
 		t.Fatalf("paused Actor status = %s", actor.GetStatus().GetState())
 	}
 	boundary, err := workflow.Quiesce(context.Background(), created)
@@ -130,7 +130,7 @@ func TestActorWorkflowForkCreatesSuspendedActorFromCheckpoint(t *testing.T) {
 		actor.GetSourceTag().GetName() != "checkpoint-"+checkpointID {
 		t.Fatalf("fork = %+v, actor = %+v", fork, actor)
 	}
-	actor.Status.ExternalSnapshot.SnapshotUri = "s3://snapshots/later-turn"
+	actor.Status.Snapshots[0].DurableSnapshot.Object.SnapshotUri = "s3://snapshots/later-turn"
 	replayed, err := NewActorWorkflow(store, actors, make(chan struct{}, 1), time.Second).Create(t.Context(), session)
 	require.NoError(t, err)
 	require.True(t, proto.Equal(fork, replayed), "a retry returns the current session without revalidating later Actor state")
@@ -213,8 +213,8 @@ func (a *lifecycleTestActors) CreateActorFromTag(_ context.Context, atespace, na
 		ActorTemplate: &ateapipb.ObjectRef{Atespace: templateNamespace, Name: templateName},
 		SourceTag:     &ateapipb.ObjectRef{Atespace: tagAtespace, Name: tagName},
 		Status: &ateapipb.ActorStatus{
-			State:            ateapipb.ActorState_ACTOR_STATE_SUSPENDED,
-			ExternalSnapshot: &ateapipb.ExternalSnapshot{SnapshotUri: "s3://snapshots/snapshot-1", ContentScope: ateapipb.SnapshotContentScope_SNAPSHOT_CONTENT_SCOPE_DATA},
+			State:     ateapipb.ActorState_ACTOR_STATE_SUSPENDED,
+			Snapshots: []*ateapipb.Snapshot{substrate.NewDurableSnapshot("s3://snapshots/snapshot-1", ateapipb.SnapshotFidelity_SNAPSHOT_FIDELITY_VOLUMES, "template-uid")},
 		},
 	}
 	a.actors[actorKey(atespace, name)] = actor
@@ -233,7 +233,7 @@ func (a *lifecycleTestActors) PauseActor(_ context.Context, atespace, name strin
 	a.mu.Lock()
 	defer a.mu.Unlock()
 	actor := a.actors[actorKey(atespace, name)]
-	actor.Status.State = ateapipb.ActorState_ACTOR_STATE_PAUSED
+	actor.Status.State = ateapipb.ActorState_ACTOR_STATE_SUSPENDED
 	return proto.CloneOf(actor), nil
 }
 
@@ -242,7 +242,7 @@ func (a *lifecycleTestActors) SuspendActor(_ context.Context, atespace, name str
 	defer a.mu.Unlock()
 	actor := a.actors[actorKey(atespace, name)]
 	actor.Status.State = ateapipb.ActorState_ACTOR_STATE_SUSPENDED
-	actor.Status.ExternalSnapshot = &ateapipb.ExternalSnapshot{SnapshotUri: "s3://snapshots/snapshot-1", ContentScope: ateapipb.SnapshotContentScope_SNAPSHOT_CONTENT_SCOPE_DATA}
+	actor.Status.Snapshots = []*ateapipb.Snapshot{substrate.NewDurableSnapshot("s3://snapshots/snapshot-1", ateapipb.SnapshotFidelity_SNAPSHOT_FIDELITY_VOLUMES, "template-uid")}
 	return proto.CloneOf(actor), nil
 }
 

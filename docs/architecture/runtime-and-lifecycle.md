@@ -213,13 +213,16 @@ state there—local framework state, workspaces, and downloaded assets that must
 survive Actor replacement. This state is runtime-private; public task history
 remains in PostgreSQL.
 
-Substrate v0.5.0-alpha2 applies one content scope to every snapshot of an Actor,
-both the node-local snapshot taken on pause and the one uploaded on suspend.
-Templates use Full, so paused and suspended Actors keep their process memory, and
-their checkpoints cannot be forked until Substrate's lifecycle v2 separates the two
-scopes again. A Data snapshot resumes by starting fresh containers from the OCI
-image with the saved durable directories; Substrate still restores one as Data when
-the Actor's template changed after the snapshot was taken.
+Substrate has one suspend RPC. An idle non-terminal boundary asks for
+asynchronous durability: the call returns once the snapshot is captured on the
+worker, the upload continues in the background, and the Actor is `SUSPENDED`.
+A terminal boundary asks for synchronous durability and returns after the
+snapshot is durable. Templates set `preferred_fidelity` to `MEMORY`, a ceiling
+the runtime may capture below. Kagent stores `MEMORY` as content scope `FULL`
+and `VOLUMES` as `DATA`. `ROOTFS` is rejected. A `FULL` checkpoint includes
+process state and cannot be forked. A resume whose snapshot template differs
+from the Actor's current template restores durable volumes and boots the guest
+fresh.
 
 The Go ADK opens and migrates its SQLite session store before readiness, but
 retains no idle database connections. Full and golden restores preserve guest

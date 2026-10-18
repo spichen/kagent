@@ -7,8 +7,8 @@ import (
 	"runtime"
 	"testing"
 
-	"github.com/agent-substrate/substrate/pkg/proto/ateapipb"
 	"github.com/stretchr/testify/require"
+	"go.ate.dev/substrate/pkg/proto/ateapipb"
 	"google.golang.org/genproto/googleapis/rpc/errdetails"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -164,7 +164,7 @@ func (t *testTags) GetActor(_ context.Context, atespace, name string) (*ateapipb
 	return &ateapipb.Actor{
 		Metadata: &ateapipb.ResourceMetadata{Atespace: atespace, Name: name, Uid: actorUID},
 		Status: &ateapipb.ActorStatus{State: ateapipb.ActorState_ACTOR_STATE_SUSPENDED,
-			ExternalSnapshot: &ateapipb.ExternalSnapshot{SnapshotUri: uri, ContentScope: ateapipb.SnapshotContentScope_SNAPSHOT_CONTENT_SCOPE_DATA, ActorTemplateUid: "template-uid"}},
+			Snapshots: []*ateapipb.Snapshot{substrate.NewDurableSnapshot(uri, ateapipb.SnapshotFidelity_SNAPSHOT_FIDELITY_VOLUMES, "template-uid")}},
 	}, nil
 }
 
@@ -188,7 +188,7 @@ func (t *testTags) CreateTag(_ context.Context, atespace, name, actorName string
 		SourceActor: &ateapipb.ObjectRef{Atespace: atespace, Name: actorName},
 		Scope:       ateapipb.TagScope_TAG_SCOPE_ATESPACE,
 		Status: &ateapipb.TagStatus{ActorTemplateUid: "template-uid",
-			Snapshot: &ateapipb.ExternalSnapshot{SnapshotUri: "s3://tags/checkpoint", ContentScope: ateapipb.SnapshotContentScope_SNAPSHOT_CONTENT_SCOPE_DATA}},
+			Snapshot: substrate.NewDurableSnapshot("s3://tags/checkpoint", ateapipb.SnapshotFidelity_SNAPSHOT_FIDELITY_VOLUMES, "template-uid")},
 	}
 	if t.mutateTag != nil {
 		t.mutateTag(t.created)
@@ -304,7 +304,7 @@ func TestDeleteHidesCheckpointBeforeDeletingTag(t *testing.T) {
 	store := &testStore{prepared: checkpoint, snapshot: &database.SessionTaskSnapshot{Atespace: "team-a", URI: "s3://snapshots/snapshot-1"}, tagUID: "tag-uid"}
 	tags := &testTags{created: &ateapipb.Tag{
 		Metadata: &ateapipb.ResourceMetadata{Atespace: "team-a", Name: tagName(checkpoint.GetId()), Uid: "tag-uid"},
-		Status:   &ateapipb.TagStatus{Snapshot: &ateapipb.ExternalSnapshot{SnapshotUri: "s3://snapshots/snapshot-1", ContentScope: ateapipb.SnapshotContentScope_SNAPSHOT_CONTENT_SCOPE_DATA}},
+		Status:   &ateapipb.TagStatus{Snapshot: substrate.NewDurableSnapshot("s3://snapshots/snapshot-1", ateapipb.SnapshotFidelity_SNAPSHOT_FIDELITY_VOLUMES, "template-uid")},
 	}}
 	service := NewService(store, testAuthorizer{}, tags, nil)
 	ctx := auth.AuthSessionTo(context.Background(), testSession{userID: "alice"})
@@ -330,7 +330,7 @@ func TestForkCreatesSessionFromCheckpoint(t *testing.T) {
 	store := &testStore{prepared: checkpoint, snapshot: &database.SessionTaskSnapshot{Atespace: "team-a", URI: "s3://snapshots/snapshot-1", ContentScope: "DATA"}}
 	workflow := &testWorkflow{}
 	store.tagUID = "tag-uid"
-	tags := &testTags{created: &ateapipb.Tag{Metadata: &ateapipb.ResourceMetadata{Atespace: "team-a", Name: tagName(checkpoint.Id), Uid: store.tagUID}, Status: &ateapipb.TagStatus{Snapshot: &ateapipb.ExternalSnapshot{SnapshotUri: store.snapshot.URI, ContentScope: ateapipb.SnapshotContentScope_SNAPSHOT_CONTENT_SCOPE_DATA}}}, actorErr: errors.New("source Actor was deleted")}
+	tags := &testTags{created: &ateapipb.Tag{Metadata: &ateapipb.ResourceMetadata{Atespace: "team-a", Name: tagName(checkpoint.Id), Uid: store.tagUID}, Status: &ateapipb.TagStatus{Snapshot: substrate.NewDurableSnapshot(store.snapshot.URI, ateapipb.SnapshotFidelity_SNAPSHOT_FIDELITY_VOLUMES, "template-uid")}}, actorErr: errors.New("source Actor was deleted")}
 	service := NewService(store, testAuthorizer{}, tags, workflow)
 	ctx := auth.AuthSessionTo(context.Background(), testSession{userID: "alice"})
 
@@ -372,7 +372,7 @@ func TestCreateRejectsInvalidTagAndKeepsCleanupRetryable(t *testing.T) {
 		{"wrong template", func(tag *ateapipb.Tag) { tag.Status.ActorTemplateUid = "other" }},
 		{"missing template", func(tag *ateapipb.Tag) { tag.Status.ActorTemplateUid = "" }},
 		{"wrong scope", func(tag *ateapipb.Tag) {
-			tag.Status.Snapshot.ContentScope = ateapipb.SnapshotContentScope_SNAPSHOT_CONTENT_SCOPE_FULL
+			tag.Status.Snapshot.Fidelity = ateapipb.SnapshotFidelity_SNAPSHOT_FIDELITY_MEMORY
 		}},
 	}
 	for _, tc := range cases {
@@ -404,7 +404,7 @@ func TestForkRejectsReplacedTag(t *testing.T) {
 			store := &testStore{prepared: checkpoint, snapshot: snapshot, tagUID: "tag-uid"}
 			tags := &testTags{created: &ateapipb.Tag{
 				Metadata: &ateapipb.ResourceMetadata{Atespace: snapshot.Atespace, Name: tagName(checkpoint.Id), Uid: tc.uid},
-				Status:   &ateapipb.TagStatus{Snapshot: &ateapipb.ExternalSnapshot{SnapshotUri: tc.uri, ContentScope: ateapipb.SnapshotContentScope_SNAPSHOT_CONTENT_SCOPE_DATA}},
+				Status:   &ateapipb.TagStatus{Snapshot: substrate.NewDurableSnapshot(tc.uri, ateapipb.SnapshotFidelity_SNAPSHOT_FIDELITY_VOLUMES, "template-uid")},
 			}}
 			service := NewService(store, testAuthorizer{}, tags, &testWorkflow{})
 			ctx := auth.AuthSessionTo(t.Context(), testSession{userID: "alice"})

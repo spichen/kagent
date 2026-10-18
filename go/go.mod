@@ -9,7 +9,6 @@ require (
 	github.com/Azure/azure-sdk-for-go/sdk/azidentity v1.14.1
 	github.com/a2aproject/a2a-go/v2 v2.6.0
 	github.com/agent-substrate/env v0.0.11-0.20260911201957-ab40c7bfb204
-	github.com/agent-substrate/substrate v0.0.0
 	github.com/anthropics/anthropic-sdk-go v1.78.0
 	github.com/aws/aws-sdk-go-v2 v1.47.1
 	github.com/aws/aws-sdk-go-v2/config v1.33.6
@@ -52,6 +51,7 @@ require (
 	github.com/stretchr/testify v1.12.1
 	github.com/testcontainers/testcontainers-go v0.44.0
 	github.com/testcontainers/testcontainers-go/modules/postgres v0.44.0
+	go.ate.dev/substrate v0.0.0
 	go.opentelemetry.io/contrib/exporters/autoexport v0.71.0
 	go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc v0.71.0
 	go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp v0.71.0
@@ -495,4 +495,4 @@ require (
 
 tool sigs.k8s.io/kube-api-linter/cmd/golangci-lint-kube-api-linter
 
-replace github.com/agent-substrate/substrate => github.com/kagent-dev/substrate v0.5.0-alpha2
+replace go.ate.dev/substrate => github.com/spichen/substrate v0.0.0-20261018133208-7542bb219761

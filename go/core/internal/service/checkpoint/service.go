@@ -7,8 +7,8 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/agent-substrate/substrate/pkg/proto/ateapipb"
 	"github.com/google/uuid"
+	"go.ate.dev/substrate/pkg/proto/ateapipb"
 	"golang.org/x/sync/singleflight"
 	"google.golang.org/genproto/googleapis/rpc/errdetails"
 	"google.golang.org/grpc/codes"
@@ -140,7 +140,7 @@ func (s *Service) create(ctx context.Context, userID, sessionID, requestID, expe
 		}
 		return nil, serviceerrors.NewUnavailable("Failed to retain checkpoint snapshot", err)
 	}
-	checkpoint, err = s.store.FinalizeSessionCheckpoint(ctx, checkpoint.GetId(), tag.GetMetadata().GetUid(), tag.GetStatus().GetSnapshot().GetSnapshotUri(), "")
+	checkpoint, err = s.store.FinalizeSessionCheckpoint(ctx, checkpoint.GetId(), tag.GetMetadata().GetUid(), substrate.SnapshotURI(substrate.TagDurableSnapshot(tag)), "")
 	if err != nil {
 		return nil, serviceerrors.NewInternal("Failed to publish checkpoint", err)
 	}
@@ -164,12 +164,13 @@ func (s *Service) ensureTag(ctx context.Context, checkpoint *apiv1alpha1.Checkpo
 			return nil, fmt.Errorf("create snapshot tag: %w", err)
 		}
 	}
-	metadata, source, snapshot := tag.GetMetadata(), tag.GetSourceActor(), tag.GetStatus().GetSnapshot()
+	metadata, source, snapshot := tag.GetMetadata(), tag.GetSourceActor(), substrate.TagDurableSnapshot(tag)
+	scope, scopeOK := substrate.SnapshotContentScope(snapshot)
 	if metadata.GetAtespace() != reference.Atespace || metadata.GetName() != name || metadata.GetUid() == "" ||
 		source.GetAtespace() != reference.Atespace || source.GetName() != actorName ||
-		tag.GetStatus().GetActorTemplateUid() != actor.GetStatus().GetExternalSnapshot().GetActorTemplateUid() ||
-		snapshot.GetSnapshotUri() == "" ||
-		strings.TrimPrefix(snapshot.GetContentScope().String(), "SNAPSHOT_CONTENT_SCOPE_") != reference.ContentScope ||
+		tag.GetStatus().GetActorTemplateUid() != substrate.ActorDurableSnapshot(actor).GetActorTemplateUid() ||
+		substrate.SnapshotURI(snapshot) == "" ||
+		!scopeOK || scope != reference.ContentScope ||
 		tag.GetScope() != ateapipb.TagScope_TAG_SCOPE_ATESPACE {
 		return nil, fmt.Errorf("snapshot tag %s/%s returned invalid identity", reference.Atespace, name)
 	}
@@ -188,13 +189,14 @@ func (s *Service) verifySnapshot(ctx context.Context, actorName string, referenc
 	if err != nil {
 		return nil, fmt.Errorf("get checkpoint Actor: %w", err)
 	}
-	metadata, snapshot := actor.GetMetadata(), actor.GetStatus().GetExternalSnapshot()
+	metadata, snapshot := actor.GetMetadata(), substrate.ActorDurableSnapshot(actor)
+	scope, scopeOK := substrate.SnapshotContentScope(snapshot)
 	if metadata.GetAtespace() != reference.Atespace || metadata.GetName() != actorName || metadata.GetUid() == "" ||
 		actor.GetStatus().GetState() != ateapipb.ActorState_ACTOR_STATE_SUSPENDED ||
-		reference.URI == "" || snapshot.GetSnapshotUri() != reference.URI || snapshot.GetActorTemplateUid() == "" {
+		reference.URI == "" || substrate.SnapshotURI(snapshot) != reference.URI || snapshot.GetActorTemplateUid() == "" {
 		return nil, fmt.Errorf("checkpoint Actor %s/%s snapshot changed", reference.Atespace, actorName)
 	}
-	if scope := strings.TrimPrefix(snapshot.GetContentScope().String(), "SNAPSHOT_CONTENT_SCOPE_"); scope != reference.ContentScope {
+	if !scopeOK || scope != reference.ContentScope {
 		return nil, fmt.Errorf("checkpoint Actor %s/%s snapshot content scope changed", reference.Atespace, actorName)
 	}
 	return actor, nil
@@ -269,7 +271,7 @@ func (s *Service) Delete(ctx context.Context, checkpointID string) error {
 	}
 	if err == nil && (tag.GetMetadata().GetUid() != tagUID ||
 		tag.GetMetadata().GetAtespace() != snapshot.Atespace || tag.GetMetadata().GetName() != tagName(checkpointID) ||
-		tag.GetStatus().GetSnapshot().GetSnapshotUri() != snapshot.URI) {
+		substrate.SnapshotURI(substrate.TagDurableSnapshot(tag)) != snapshot.URI) {
 		return serviceerrors.NewFailedPrecondition("Checkpoint snapshot tag identity changed", nil)
 	}
 	if err := s.tags.DeleteTag(ctx, snapshot.Atespace, tagName(checkpointID)); err != nil && status.Code(err) != codes.NotFound {
@@ -323,10 +325,12 @@ func (s *Service) Fork(ctx context.Context, checkpointID, requestID string) (*ap
 	if err != nil {
 		return nil, serviceerrors.NewUnavailable("Failed to get checkpoint tag", err)
 	}
+	tagSnapshot := substrate.TagDurableSnapshot(tag)
+	tagScope, tagScopeOK := substrate.SnapshotContentScope(tagSnapshot)
 	if tagUID == "" || tag.GetMetadata().GetUid() != tagUID ||
 		tag.GetMetadata().GetAtespace() != snapshot.Atespace || tag.GetMetadata().GetName() != tagName(checkpointID) ||
-		snapshot.URI == "" || tag.GetStatus().GetSnapshot().GetSnapshotUri() != snapshot.URI ||
-		tag.GetStatus().GetSnapshot().GetContentScope() != ateapipb.SnapshotContentScope_SNAPSHOT_CONTENT_SCOPE_DATA {
+		snapshot.URI == "" || substrate.SnapshotURI(tagSnapshot) != snapshot.URI ||
+		!tagScopeOK || tagScope != substrate.ContentScopeData {
 		return nil, serviceerrors.NewFailedPrecondition("Checkpoint tag identity changed", nil)
 	}
 	id, err := uuid.NewV7()

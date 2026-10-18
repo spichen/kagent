@@ -60,13 +60,15 @@ not checkpointable or forkable; callers must resolve the interaction first.
 Creating a checkpoint does not suspend the Actor again:
 
 1. Reserve the checkpoint in PostgreSQL.
-2. Verify that the suspended Actor still holds the external snapshot URI and scope recorded on the boundary.
+2. Verify that the suspended Actor still holds the durable snapshot URI and stored scope recorded on the boundary.
 3. Create a Substrate `Tag`, which copies the Actor's current snapshot into independent storage, and verify the source did not change during the copy.
 4. Atomically persist the Tag UID and copied snapshot URI and mark the checkpoint ready.
 
-Substrate v0.4.0-alpha1 records snapshot lineage in
-`Actor.status.external_snapshot.actor_template_uid`. The Tag's template UID must
-match that lineage, and the Actor UID must remain unchanged across the copy.
+The Actor's durable snapshot is the newest completed actor-owned entry in
+`Actor.status.snapshots`. Its URI is `durable_snapshot.object.snapshot_uri`.
+The Tag copies that snapshot into `Tag.status.snapshot`. The Tag's
+`actor_template_uid` must match the Actor snapshot, and the Actor UID must
+remain unchanged across the copy.
 
 The `CREATING` reservation blocks task writes and idle or explicit lifecycle changes until the
 copy completes or cleanup finishes. A lost response can reuse a completed Tag;
@@ -88,7 +90,7 @@ the row. A checkpoint referenced by a fork cannot be deleted. Substrate deletes 
 
 ## Forking
 
-Forks are currently unavailable. Substrate 0.5.0-alpha2 applies one snapshot scope to pause and suspend, and templates use Full so paused Actors keep their process memory. A Full checkpoint restored into a new Actor would resume processes that still hold the source session's IDs, so `ForkSession` rejects it with `FAILED_PRECONDITION`. Forking returns when Substrate's lifecycle v2 lets templates take Data snapshots on suspend again. The rest of this section describes forks of Data checkpoints.
+Forks are currently unavailable for the snapshots kagent records. Templates request `MEMORY` fidelity, stored as content scope `FULL`, so a checkpoint can include process state. `ForkSession` rejects that scope with `FAILED_PRECONDITION`. A volumes-only snapshot, stored as `DATA`, is the forkable scope. The rest of this section describes forks of Data checkpoints.
 
 Forking creates a new Session and context ID. It copies events through the
 saved cutoff and reconstructs task views without reading the source's current task
@@ -109,7 +111,7 @@ still name those remote conversations and are not rewritten.
 New work appends only to the fork's history. Source history and the checkpoint remain
 immutable. The copied head boundary uses the retained Tag URI, allowing a fresh fork
 to be checkpointed before its first turn. Fork creation verifies the Tag UID and URI
-as well as the Actor's source Tag, suspended state, template, and external snapshot.
+as well as the Actor's source Tag, suspended state, template, and durable snapshot.
 
 Checkpoint sharing is not implemented. Future sharing must be restricted to data
 snapshots without process state.

@@ -26,7 +26,7 @@ test("substrate: the inventory renders, and partial runtime data says so", async
     // depending on how many there are. Both numbers, or the tile is not worth its space.
     await expect(page.getByTestId("substrate-stat-pools-value")).toHaveText("2");
     await expect(page.getByTestId("substrate-stat-templates-value")).toHaveText("1/2");
-    // Two running of eight: the rest are crashed, deleting, paused, resuming, suspended
+    // Two running of eight: the rest are crashed, deleting, reverting, resuming, suspended
     // and suspending, which is exactly the case a bare count would hide.
     await expect(page.getByTestId("substrate-stat-actors-value")).toHaveText("2/8");
     await expect(page.getByTestId("substrate-stat-workers-value")).toHaveText("1/2");
@@ -47,10 +47,10 @@ test("substrate: the inventory renders, and partial runtime data says so", async
       "danger",
       "warning",
       "progress",
+      "progress",
       "healthy",
       "healthy",
       "progress",
-      "idle",
       "idle",
     ]);
 
@@ -63,8 +63,8 @@ test("substrate: the inventory renders, and partial runtime data says so", async
       "Deleting Actors: 1",
       "Resuming Actors: 1",
       "Running Actors: 2",
+      "Reverting Actors: 1",
       "Suspending Actors: 1",
-      "Paused Actors: 1",
       "Suspended Actors: 1",
     ]) {
       await expect(tip).toContainText(line);
@@ -78,9 +78,11 @@ test("substrate: the inventory renders, and partial runtime data says so", async
     await expect(legend).toContainText("Suspended: 1");
 
     // Every state the controller can report, so a reader learns the vocabulary from the
-    // page rather than from waiting for something to go wrong.
-    await expect(legend).toContainText("Pausing: 0");
+    // page rather than from waiting for something to go wrong. Pause is not one of them.
+    await expect(legend).toContainText("Reverting: 1");
     await expect(legend).toContainText("Unknown: 0");
+    await expect(legend).not.toContainText("Pausing");
+    await expect(legend).not.toContainText("Paused");
     // `ACTOR_STATE_CRASHED` and a vocabulary entry of `Crashed` are the same status, and
     // keying the legend on the wire value listed it twice — once at zero.
     await expect(legend.getByText(/^Crashed: /)).toHaveCount(1);
@@ -89,7 +91,7 @@ test("substrate: the inventory renders, and partial runtime data says so", async
     // reader nor a keyboard has one. Colour is never carrying this alone.
     await expect(bar).toHaveAttribute(
       "aria-label",
-      "Actor status. Crashed Actors: 1, Deleting Actors: 1, Resuming Actors: 1, Running Actors: 2, Suspending Actors: 1, Paused Actors: 1, Suspended Actors: 1",
+      "Actor status. Crashed Actors: 1, Deleting Actors: 1, Resuming Actors: 1, Reverting Actors: 1, Running Actors: 2, Suspending Actors: 1, Suspended Actors: 1",
     );
   });
 
@@ -113,7 +115,7 @@ test("substrate: the inventory renders, and partial runtime data says so", async
 
     // The rest of what decides where and how a template runs.
     await expect(templates).toContainText("gvisor");
-    await expect(templates).toContainText("pool=kagent-default");
+    await expect(templates).toContainText("kagent.dev/worker-pool-name=kagent-default");
     await expect(templates.getByRole("columnheader", { name: "Harness", exact: true })).toHaveCount(0);
 
     // Both phases, and coloured by what they mean rather than all alike: a Ready template

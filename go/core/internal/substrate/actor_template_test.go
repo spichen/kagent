@@ -8,9 +8,9 @@ import (
 
 	a2atype "github.com/a2aproject/a2a-go/v2/a2a"
 	a2apb "github.com/a2aproject/a2a-go/v2/a2apb/v1"
-	atev1alpha1 "github.com/agent-substrate/substrate/pkg/api/v1alpha1"
-	"github.com/agent-substrate/substrate/pkg/proto/ateapipb"
 	"github.com/stretchr/testify/require"
+	atev1alpha1 "go.ate.dev/substrate/pkg/api/v1alpha1"
+	"go.ate.dev/substrate/pkg/proto/ateapipb"
 	"google.golang.org/protobuf/proto"
 	corev1 "k8s.io/api/core/v1"
 
@@ -19,15 +19,13 @@ import (
 
 func TestActorTemplateSandboxClass(t *testing.T) {
 	for _, tt := range []struct {
-		name       string
-		class      atev1alpha1.SandboxClass
-		wantClass  ateapipb.SandboxClass
-		wantConfig string
-		wantError  string
+		name      string
+		class     atev1alpha1.SandboxClass
+		wantError string
 	}{
-		{name: "default", wantClass: ateapipb.SandboxClass_SANDBOX_CLASS_GVISOR, wantConfig: "gvisor-default"},
-		{name: "gvisor", class: atev1alpha1.SandboxClassGvisor, wantClass: ateapipb.SandboxClass_SANDBOX_CLASS_GVISOR, wantConfig: "gvisor-default"},
-		{name: "microvm", class: atev1alpha1.SandboxClassMicroVM, wantClass: ateapipb.SandboxClass_SANDBOX_CLASS_MICROVM, wantConfig: "microvm"},
+		{name: "default"},
+		{name: "gvisor", class: atev1alpha1.SandboxClassGvisor},
+		{name: "microvm", class: atev1alpha1.SandboxClassMicroVM},
 		{name: "unsupported", class: "unsupported", wantError: `unsupported sandbox class "unsupported"`},
 	} {
 		t.Run(tt.name, func(t *testing.T) {
@@ -50,8 +48,8 @@ func TestActorTemplateSandboxClass(t *testing.T) {
 				return
 			}
 			require.NoError(t, err)
-			require.Equal(t, tt.wantClass, template.GetSandboxConfig().GetSandboxClass())
-			require.Equal(t, tt.wantConfig, template.GetSandboxConfig().GetConfigName())
+			require.Equal(t, translator.DefaultActorCPU, template.GetResources().GetLimits()[0].GetQuantity())
+			require.Equal(t, translator.DefaultActorMemory, template.GetResources().GetLimits()[1].GetQuantity())
 			testWorkerPoolSelection(t, template, "agents", "pool")
 		})
 	}
@@ -93,10 +91,12 @@ func TestActorTemplateForRevision(t *testing.T) {
 	if !slices.Equal(container.Command, spec.Command) || !slices.Equal(container.Args, spec.Args) {
 		t.Fatalf("container command/args = %v %v", container.Command, container.Args)
 	}
-	if template.GetSandboxConfig().GetSandboxClass() != ateapipb.SandboxClass_SANDBOX_CLASS_GVISOR || template.GetSandboxConfig().GetConfigName() != "gvisor-default" || container.GetWakeupProbe().GetHttpGet().GetPath() != "/readyz" || container.GetWakeupProbe().GetHttpGet().GetPort() != 8081 || container.GetWakeupProbe().GetTimeoutSeconds() != 30 {
+	if container.GetWakeupProbe().GetHttpGet().GetPath() != "/readyz" || container.GetWakeupProbe().GetHttpGet().GetPort() != 8081 || container.GetWakeupProbe().GetTimeoutSeconds() != 30 {
 		t.Fatalf("unexpected runtime contract: %+v", template)
 	}
-	require.Equal(t, ateapipb.SnapshotContentScope_SNAPSHOT_CONTENT_SCOPE_FULL, template.GetSnapshotConfig().GetOnCommit())
+	require.Equal(t, translator.DefaultActorCPU, template.GetResources().GetLimits()[0].GetQuantity())
+	require.Equal(t, translator.DefaultActorMemory, template.GetResources().GetLimits()[1].GetQuantity())
+	require.Equal(t, ateapipb.SnapshotFidelity_SNAPSHOT_FIDELITY_MEMORY, template.GetSnapshotConfig().GetPreferredFidelity())
 	environment := map[string]*ateapipb.EnvVar{}
 	for _, variable := range container.Env {
 		environment[variable.Name] = variable

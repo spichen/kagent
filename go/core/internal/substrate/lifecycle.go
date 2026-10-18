@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/agent-substrate/substrate/pkg/proto/ateapipb"
+	"go.ate.dev/substrate/pkg/proto/ateapipb"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/proto"
@@ -34,7 +34,7 @@ type ActorBinding struct {
 type ActorSnapshot struct {
 	Tag          *ateapipb.ObjectRef
 	URI          string
-	ContentScope ateapipb.SnapshotContentScope
+	ContentScope string
 }
 
 // ActorCreation describes runtime startup, independent of the owning API.
@@ -78,7 +78,7 @@ func prepareActorTransition(ctx context.Context, actors LifecycleClient, binding
 		if creation == nil || creation.EgressPolicy == nil {
 			return nil, fmt.Errorf("actor creation requires an egress policy")
 		}
-		if snapshot := creation.Snapshot; snapshot != nil && (snapshot.Tag.GetAtespace() == "" || snapshot.Tag.GetName() == "" || snapshot.URI == "" || snapshot.ContentScope != ateapipb.SnapshotContentScope_SNAPSHOT_CONTENT_SCOPE_DATA) {
+		if snapshot := creation.Snapshot; snapshot != nil && (snapshot.Tag.GetAtespace() == "" || snapshot.Tag.GetName() == "" || snapshot.URI == "" || snapshot.ContentScope != ContentScopeData) {
 			return nil, fmt.Errorf("actor restoration requires a retained DATA snapshot")
 		}
 	}
@@ -102,7 +102,7 @@ func prepareActorTransition(ctx context.Context, actors LifecycleClient, binding
 		if operation == apiv1alpha1.RuntimeOperation_RUNTIME_OPERATION_RESUME || operation == apiv1alpha1.RuntimeOperation_RUNTIME_OPERATION_SUSPEND {
 			switch actor.GetStatus().GetState() {
 			case ateapipb.ActorState_ACTOR_STATE_RUNNING, ateapipb.ActorState_ACTOR_STATE_SUSPENDED,
-				ateapipb.ActorState_ACTOR_STATE_PAUSED, ateapipb.ActorState_ACTOR_STATE_RESUMING, ateapipb.ActorState_ACTOR_STATE_SUSPENDING:
+				ateapipb.ActorState_ACTOR_STATE_RESUMING, ateapipb.ActorState_ACTOR_STATE_SUSPENDING:
 			default:
 				return nil, fmt.Errorf("actor cannot perform %s from %s", operation, actor.GetStatus().GetState())
 			}
@@ -138,8 +138,9 @@ func ApplyActorTransition(ctx context.Context, actors LifecycleClient, transitio
 		}
 		if err == nil && creation.Snapshot != nil {
 			snapshot := creation.Snapshot
-			observed := actor.GetStatus().GetExternalSnapshot()
-			if !proto.Equal(actor.GetSourceTag(), snapshot.Tag) || observed.GetSnapshotUri() != snapshot.URI || observed.GetContentScope() != snapshot.ContentScope {
+			observed := ActorDurableSnapshot(actor)
+			observedScope, observedOK := SnapshotContentScope(observed)
+			if !proto.Equal(actor.GetSourceTag(), snapshot.Tag) || SnapshotURI(observed) != snapshot.URI || !observedOK || observedScope != snapshot.ContentScope {
 				err = fmt.Errorf("restored Actor does not match the retained checkpoint")
 			}
 		}

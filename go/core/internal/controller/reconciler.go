@@ -9,8 +9,8 @@ import (
 	"strings"
 	"time"
 
-	atev1alpha1 "github.com/agent-substrate/substrate/pkg/api/v1alpha1"
-	"github.com/agent-substrate/substrate/pkg/proto/ateapipb"
+	atev1alpha1 "go.ate.dev/substrate/pkg/api/v1alpha1"
+	"go.ate.dev/substrate/pkg/proto/ateapipb"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/proto"
@@ -388,11 +388,11 @@ func (r *Reconciler) observePreparationError(state AgentReconciliation, err erro
 	if state.PreparationFailure != nil && !state.PreparationFailure.Retryable {
 		return err
 	}
-	r.observePreparation(state, nil, runtimePreparationFailure(err, state.Target.ActorTemplate.GetSandboxConfig().GetConfigName(), state.Target.Revision.SandboxClass))
+	r.observePreparation(state, nil, runtimePreparationFailure(err, state.Target.Revision.SandboxClass))
 	return err
 }
 
-func runtimePreparationFailure(err error, configName string, class atev1alpha1.SandboxClass) *ReconciliationFailure {
+func runtimePreparationFailure(err error, class atev1alpha1.SandboxClass) *ReconciliationFailure {
 	// Backend errors can contain credentials or infrastructure details. Publish
 	// only the code and expected configuration, never the raw error or details.
 	message := fmt.Sprintf("Runtime preparation failed (%s); check controller logs for details", status.Code(err))
@@ -401,7 +401,7 @@ func runtimePreparationFailure(err error, configName string, class atev1alpha1.S
 			class = atev1alpha1.SandboxClassGvisor
 		}
 		message = fmt.Sprintf("Substrate rejected runtime preparation (FailedPrecondition); verify SandboxConfig %q exists with spec.sandboxClass=%q and the required runtime assets; check controller logs for details",
-			configName, class)
+			sandboxConfigName(class), class)
 	}
 	return &ReconciliationFailure{
 		Condition: kagentv1alpha3.AgentConditionReady,
@@ -409,6 +409,15 @@ func runtimePreparationFailure(err error, configName string, class atev1alpha1.S
 		Message:   message,
 		Retryable: true,
 	}
+}
+
+// sandboxConfigName is the cluster SandboxConfig a pool of this class runs.
+// The ActorTemplate no longer names it; the pool's sandbox class does.
+func sandboxConfigName(class atev1alpha1.SandboxClass) string {
+	if class == atev1alpha1.SandboxClassMicroVM {
+		return "microvm"
+	}
+	return "gvisor-default"
 }
 
 // Observations belong to the Agent's current preparation, independently of how
