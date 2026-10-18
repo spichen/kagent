@@ -167,9 +167,10 @@ Helm `--set` overrides:
 HELM_ARGS=--set ui.replicas=0 --set config.logging.level=debug
 ```
 
-The Substrate chart version defaults to the `github.com/kagent-dev/substrate`
-version in `go/go.mod`. The following Make variables select other chart sources
-for local or prerelease testing:
+The Substrate chart version defaults to the `github.com/spichen/substrate`
+version in `go/go.mod`, and the charts are pulled from
+`oci://ghcr.io/spichen/substrate/helm`. The following Make variables select
+other chart sources for local or prerelease testing:
 
 ```shell
 make kagent-cli-install \

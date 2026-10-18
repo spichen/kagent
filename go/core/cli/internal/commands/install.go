@@ -185,7 +185,7 @@ func chartConfig(chart *apiv1.ChartConfig) helmConfig {
 // install installs the Substrate and Kagent releases.
 func install(ctx context.Context, cfg *connection.Options, helmConfig, substrateHelmConfig, podCertificateHelmConfig helmConfig, modelProvider v1alpha3.ModelProvider, skipDatabaseSetup bool, postgresImage string) error {
 	substrateHelmConfig.inlineValues = fmt.Sprintf("credentialProvider:\n  namespacePolicies:\n    - atespace: %s\n      allowedNamespaces: [%s]\n", strconv.Quote(cfg.Namespace), strconv.Quote(cfg.Namespace))
-	helmConfig.inlineValues += fmt.Sprintf("\nsubstrateWorkerPool:\n  create: true\n  workerImage: %s\n", strconv.Quote("ghcr.io/kagent-dev/substrate/ateom-gvisor:v"+strings.TrimPrefix(substrateHelmConfig.version, "v")))
+	helmConfig.inlineValues += fmt.Sprintf("\nsubstrateWorkerPool:\n  create: true\n  workerImage: %s\n", strconv.Quote("ghcr.io/spichen/substrate/ateworker-gvisor:v"+strings.TrimPrefix(substrateHelmConfig.version, "v")))
 
 	// spinner for installation progress
 	s := spinner.New(spinner.CharSets[35], 100*time.Millisecond)

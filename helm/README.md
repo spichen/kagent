@@ -157,7 +157,7 @@ substrateWorkerPool:
 ```
 
 Substrate worker images are published to GHCR, for example
-`ghcr.io/kagent-dev/substrate/ateom-microvm:latest`. For a pinned installation,
+`ghcr.io/spichen/substrate/ateworker-microvm:latest`. For a pinned installation,
 use a release tag matching your Substrate version.
 
 Reference the pool through `spec.substrate.workerPoolRef` on a Harness in the same namespace.

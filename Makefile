@@ -246,7 +246,7 @@ KMCP_VERSION ?= $(shell $(AWK) '/github\.com\/kagent-dev\/kmcp/ { print substr($
 
 # Substrate
 # Override for local development with locally published charts.
-SUBSTRATE_REPO ?= oci://ghcr.io/kagent-dev/substrate/helm
+SUBSTRATE_REPO ?= oci://ghcr.io/spichen/substrate/helm
 SUBSTRATE_PODCERT_REPO ?= $(SUBSTRATE_REPO)
 SUBSTRATE_PODCERT_VERSION ?= $(SUBSTRATE_VERSION)
 
