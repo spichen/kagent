@@ -8,7 +8,7 @@ import (
 	"testing"
 	"time"
 
-	"go.ate.dev/substrate/pkg/proto/ateapipb"
+	"github.com/agent-substrate/substrate/pkg/proto/ateapipb"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/grpc/codes"

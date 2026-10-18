@@ -8,7 +8,7 @@ import (
 	"reflect"
 
 	a2apb "github.com/a2aproject/a2a-go/v2/a2apb/v1"
-	atev1alpha1 "go.ate.dev/substrate/pkg/api/v1alpha1"
+	atev1alpha1 "github.com/agent-substrate/substrate/pkg/api/v1alpha1"
 	"google.golang.org/protobuf/proto"
 	corev1 "k8s.io/api/core/v1"
 
@@ -16,14 +16,6 @@ import (
 )
 
 const shortRevisionBytes = 6
-
-// DefaultActorCPU and DefaultActorMemory are the compute limits written onto
-// every agent ActorTemplate. Substrate requires both and books them against
-// worker capacity.
-const (
-	DefaultActorCPU    = "1"
-	DefaultActorMemory = "1Gi"
-)
 
 // RevisionID is the SHA-256 identity of a compiled runtime revision. Keeping
 // the digest as a fixed-size value makes invalid lengths unrepresentable.
@@ -113,8 +105,6 @@ func (r *Revision) Digest() (RevisionID, error) {
 		Credentials        []egress.Credential      `json:"credentials,omitempty"`
 		EgressDestinations []string                 `json:"egressDestinations"`
 		SandboxClass       atev1alpha1.SandboxClass `json:"sandboxClass"`
-		ActorCPU           string                   `json:"actorCPU"`
-		ActorMemory        string                   `json:"actorMemory"`
 
 		// Placement now matches the pool's namespace as well as its name.
 		// Hash it explicitly so existing immutable templates do not conflict after upgrades.
@@ -124,8 +114,7 @@ func (r *Revision) Digest() (RevisionID, error) {
 		Image: r.Image, Command: r.Command, Args: r.Args, Environment: r.Environment, ConfigJSON: r.ConfigJSON,
 		WorkerPoolName: r.WorkerPoolName, SnapshotLocation: r.SnapshotLocation, Provenance: r.Provenance,
 		Credentials: r.Credentials, EgressDestinations: r.EgressDestinations,
-		SandboxClass: sandboxClass, ActorCPU: DefaultActorCPU, ActorMemory: DefaultActorMemory,
-		WorkerPoolNamespace: r.Namespace,
+		SandboxClass: sandboxClass, WorkerPoolNamespace: r.Namespace,
 	})
 	if err != nil {
 		return RevisionID{}, fmt.Errorf("marshal runtime revision inputs: %w", err)

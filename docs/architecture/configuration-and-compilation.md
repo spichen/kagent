@@ -156,18 +156,13 @@ completion.
 ### WorkerPool sandbox selection
 
 For every harness type, the controller resolves `spec.substrate.workerPoolRef`
-in the Agent namespace. The pool's first `spec.sandboxClasses` entry selects
-the runtime. The ActorTemplate pins that pool with its worker selector and does
-not carry a sandbox class of its own. Operators still install the SandboxConfig
-named below for that class:
+in the Agent namespace. The pool's `spec.sandboxClass` selects
+the ActorTemplate's sandbox configuration:
 
-| WorkerPool class | Runtime | SandboxConfig name |
+| WorkerPool class | ActorTemplate sandbox class | SandboxConfig name |
 | --- | --- | --- |
-| Empty or `gvisor` | gVisor | `gvisor-default` |
-| `microvm` | MicroVM | `microvm` |
-
-Every agent ActorTemplate declares cpu `1` and memory `1Gi`. Substrate books
-those limits against the worker's remaining capacity.
+| Empty or `gvisor` | `SANDBOX_CLASS_GVISOR` | `gvisor-default` |
+| `microvm` | `SANDBOX_CLASS_MICROVM` | `microvm` |
 
 These names follow Substrate v0.4.0-alpha1's standard gVisor installation and
 MicroVM setup/E2E convention. They are not API-level defaults or discovery:

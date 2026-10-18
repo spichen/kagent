@@ -30,7 +30,7 @@ tests:
       - notExists:
           path: metadata.labels["kagent.dev/worker-pool"]
       - equal:
-          path: spec.sandboxClasses[0].name
+          path: spec.sandboxClass
           value: gvisor
       - equal:
           path: spec.workerImage
@@ -40,7 +40,7 @@ tests:
       substrateWorkerPool.sandboxClass: ""
     asserts:
       - equal:
-          path: spec.sandboxClasses[0].name
+          path: spec.sandboxClass
           value: gvisor
   - it: should scope a same-named pool to its release namespace
     release:
@@ -104,7 +104,7 @@ tests:
       substrateWorkerPool.workerImage: ghcr.io/kagent-dev/substrate/ateom-microvm:v0.3.0-alpha1
     asserts:
       - equal:
-          path: spec.sandboxClasses[0].name
+          path: spec.sandboxClass
           value: microvm
       - equal:
           path: spec.workerImage

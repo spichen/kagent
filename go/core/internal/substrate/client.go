@@ -9,7 +9,7 @@ import (
 	"strings"
 	"time"
 
-	"go.ate.dev/substrate/pkg/proto/ateapipb"
+	"github.com/agent-substrate/substrate/pkg/proto/ateapipb"
 	"go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc"
 	"go.opentelemetry.io/otel/trace/noop"
 	"google.golang.org/grpc"
@@ -196,25 +196,20 @@ func (c *Client) ResumeActor(ctx context.Context, atespace, actorID string) (*at
 	return resp.GetActor(), nil
 }
 
-// PauseActor captures a node-local snapshot and returns once that snapshot is
-// on the worker. Durable upload continues in the background. Substrate no
-// longer has a separate pause RPC; this is an asynchronous suspend.
 func (c *Client) PauseActor(ctx context.Context, atespace, actorID string) (*ateapipb.Actor, error) {
-	return c.suspendActor(ctx, atespace, actorID, ateapipb.DurabilityMode_DURABILITY_MODE_ASYNCHRONOUS)
-}
-
-// SuspendActor returns after the snapshot is complete in durable storage.
-func (c *Client) SuspendActor(ctx context.Context, atespace, actorID string) (*ateapipb.Actor, error) {
-	return c.suspendActor(ctx, atespace, actorID, ateapipb.DurabilityMode_DURABILITY_MODE_SYNCHRONOUS)
-}
-
-func (c *Client) suspendActor(ctx context.Context, atespace, actorID string, mode ateapipb.DurabilityMode) (*ateapipb.Actor, error) {
 	ctx, cancel := c.callCtx(ctx)
 	defer cancel()
-	resp, err := c.ControlClient.SuspendActor(ctx, &ateapipb.SuspendActorRequest{
-		Actor:   actorRef(atespace, actorID),
-		Options: &ateapipb.SuspendOptions{Mode: mode},
-	})
+	resp, err := c.ControlClient.PauseActor(ctx, &ateapipb.PauseActorRequest{Actor: actorRef(atespace, actorID)})
+	if err != nil {
+		return nil, err
+	}
+	return resp.GetActor(), nil
+}
+
+func (c *Client) SuspendActor(ctx context.Context, atespace, actorID string) (*ateapipb.Actor, error) {
+	ctx, cancel := c.callCtx(ctx)
+	defer cancel()
+	resp, err := c.ControlClient.SuspendActor(ctx, &ateapipb.SuspendActorRequest{Actor: actorRef(atespace, actorID)})
 	if err != nil {
 		return nil, err
 	}
@@ -261,7 +256,17 @@ func (c *Client) DeleteActor(ctx context.Context, atespace, actorID string) erro
 func (c *Client) EnsureAtespace(ctx context.Context, name string) error {
 	ctx, cancel := c.callCtx(ctx)
 	defer cancel()
-	_, err := c.CreateAtespace(ctx, &ateapipb.CreateAtespaceRequest{
+	// Existing spaces only require scoped access, not global create permission.
+	_, err := c.GetAtespace(ctx, &ateapipb.GetAtespaceRequest{
+		Atespace: &ateapipb.ObjectRef{Name: name},
+	})
+	if err == nil {
+		return nil
+	}
+	if status.Code(err) != codes.NotFound {
+		return err
+	}
+	_, err = c.CreateAtespace(ctx, &ateapipb.CreateAtespaceRequest{
 		Atespace: &ateapipb.Atespace{Metadata: &ateapipb.ResourceMetadata{Name: name}},
 	})
 	if err != nil && status.Code(err) == codes.AlreadyExists {

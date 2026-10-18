@@ -5,7 +5,7 @@ import (
 	"testing"
 
 	a2apb "github.com/a2aproject/a2a-go/v2/a2apb/v1"
-	atev1alpha1 "go.ate.dev/substrate/pkg/api/v1alpha1"
+	atev1alpha1 "github.com/agent-substrate/substrate/pkg/api/v1alpha1"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/protobuf/encoding/protowire"
 	"google.golang.org/protobuf/proto"

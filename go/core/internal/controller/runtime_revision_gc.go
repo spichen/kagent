@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"time"
 
-	"go.ate.dev/substrate/pkg/proto/ateapipb"
+	"github.com/agent-substrate/substrate/pkg/proto/ateapipb"
 	"go.opentelemetry.io/otel/metric"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"

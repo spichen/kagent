@@ -379,8 +379,7 @@ substrateWorkerPool:
   workerImage: ""
   # sandboxClass selects the sandbox runtime family (gvisor|microvm) for workers
   # and kagent-generated ActorTemplates whose Harness references this pool.
-  # The chart writes it as the WorkerPool's single spec.sandboxClasses entry.
-  # Use a matching workerImage (ateworker-gvisor or ateworker-microvm). Substrate must have
+  # Use a matching workerImage (ateom-gvisor or ateom-microvm). Substrate must have
   # the corresponding SandboxConfig installed (gvisor-default or microvm);
   # microvm also requires runtime assets and KVM-capable nodes with atelet's device plugin.
   sandboxClass: gvisor

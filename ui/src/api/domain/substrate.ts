@@ -4,8 +4,6 @@ export interface SubstrateWorkerPoolEntry {
   name: string;
   replicas: number;
   ateomImage: string;
-  /** First `spec.sandboxClasses` name. Templates that select this pool inherit it. */
-  sandboxClass?: string;
 }
 
 /** An ATE ActorTemplate, identified by atespace and name. */
@@ -14,7 +12,6 @@ export interface SubstrateActorTemplateEntry {
   name: string;
   phase?: string;
   goldenTag?: string;
-  /** Resolved from the selected worker pool. Absent when that pool is not in the inventory. */
   sandboxClass?: string;
   workerSelector?: string;
 }

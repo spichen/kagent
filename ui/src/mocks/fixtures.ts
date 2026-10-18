@@ -291,20 +291,8 @@ export const mockSubstrateInventory: {
 } = {
   ateApiError: "ate-api list actors timed out after 5s; actors may be incomplete",
   workerPools: [
-    {
-      namespace: "kagent",
-      name: "kagent-default",
-      replicas: 3,
-      ateomImage: "ghcr.io/ate-dev/ateom:1.4.0",
-      sandboxClass: "gvisor",
-    },
-    {
-      namespace: "platform",
-      name: "gpu-pool",
-      replicas: 1,
-      ateomImage: "ghcr.io/ate-dev/ateom:1.4.0",
-      sandboxClass: "microvm",
-    },
+    { namespace: "kagent", name: "kagent-default", replicas: 3, ateomImage: "ghcr.io/ate-dev/ateom:1.4.0" },
+    { namespace: "platform", name: "gpu-pool", replicas: 1, ateomImage: "ghcr.io/ate-dev/ateom:1.4.0" },
   ],
   actorTemplates: [
     {
@@ -312,9 +300,8 @@ export const mockSubstrateInventory: {
       name: "coder-template",
       phase: "Ready",
       goldenTag: "ate-golden/snap-2026-07-28",
-      // The class is the pool's. These labels select kagent-default, which is gvisor.
-      workerSelector:
-        "kagent.dev/worker-pool-name=kagent-default,kagent.dev/worker-pool-namespace=kagent",
+      sandboxClass: "gvisor",
+      workerSelector: "pool=kagent-default",
     },
     {
       atespace: "platform",
@@ -350,13 +337,14 @@ export const mockSubstrateInventory: {
       ateomPodName: "ateom-kagent-default-0",
       version: 1,
     },
-    // Reverting is in progress, so the bar draws it as a transition.
-    { actorId: "actor-5d17", atespace: "kagent", status: "Reverting", version: 1 },
+    // Parked rather than broken, and the only status here that reads as neither:
+    // without it nothing on the page is drawn in the idle tone.
+    { actorId: "actor-5d17", atespace: "kagent", status: "Paused", version: 1 },
     // The controller's other unnamed state. `ACTOR_STATE_CRASHED` alone would pass a
     // humaniser that special-cased that one word; two of them do not.
     { actorId: "actor-2e40", atespace: "kagent", status: "ACTOR_STATE_DELETING", version: 1 },
     // A transition, and a word the page recognises by its shape rather than from a
-    // list — the same rule that has to carry `Suspending` and `Reverting`.
+    // list — the same rule that has to carry `Suspending` and `Pausing`.
     { actorId: "actor-8b91", atespace: "kagent", status: "Resuming", version: 1 },
     { actorId: "actor-c3f5", atespace: "kagent", status: "Suspended", version: 3 },
   ],

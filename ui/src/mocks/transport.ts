@@ -2,13 +2,7 @@ import { RuntimeState, RuntimeOperation } from "@/generated/kagent/api/v1alpha1/
 import { AgentService } from "@/generated/kagent/api/v1alpha1/agents_pb";
 import type { Agent } from "@/api/domain/agents";
 import { randomId } from "@/api/randomId";
-import {
-  ActorState,
-  SnapshotOwner,
-  SnapshotStorageStatus,
-  type WorkerSchema,
-  type ActorSchema,
-} from "@/generated/ateapi_pb";
+import { ActorState, SandboxClass, type WorkerSchema, type ActorSchema } from "@/generated/ateapi_pb";
 import type { ActorTemplateSchema } from "@/generated/ateapi_pb";
 import { ScheduledRunService, ScheduledRunSchema, ScheduledRunExecutionSchema, ScheduledRunExecutionState, type ScheduledRun } from "@/generated/kagent/api/v1alpha1/scheduled_runs_pb";
 /**
@@ -1339,11 +1333,7 @@ function substrateWorkerPoolMessage(pool: SubstrateWorkerPoolEntry) {
       apiVersion: "ate.dev/v1alpha1",
       kind: "WorkerPool",
       metadata: { namespace: pool.namespace, name: pool.name },
-      spec: {
-        replicas: pool.replicas ?? 0,
-        workerImage: pool.ateomImage ?? "",
-        ...(pool.sandboxClass ? { sandboxClasses: [{ name: pool.sandboxClass }] } : {}),
-      },
+      spec: { replicas: pool.replicas ?? 0, workerImage: pool.ateomImage ?? "" },
     }, "ate.dev/v1alpha1"),
   };
 }
@@ -1363,6 +1353,11 @@ function substrateActorTemplateMessage(
           : undefined,
         errorMessage: template.phase === "Failed" ? "Golden snapshot failed" : "",
       },
+    },
+    sandboxConfig: {
+      sandboxClass:
+        SandboxClass[template.sandboxClass?.toUpperCase() as keyof typeof SandboxClass]
+        ?? SandboxClass.UNSPECIFIED,
     },
     workerSelector: {
       matchLabels: template.workerSelector
@@ -1395,30 +1390,10 @@ function substrateActorMessage(
         workerPodIps: actor.ateomPodIp ? [actor.ateomPodIp] : [],
         workerPool: actor.workerPoolName ?? "",
       } : undefined,
-      snapshots: [
-        ...(actor.latestSnapshot
-          ? [{
-              uuid: "latest",
-              generation: 1,
-              owner: SnapshotOwner.ACTOR,
-              durableSnapshot: {
-                status: SnapshotStorageStatus.COMPLETED,
-                object: { snapshotUri: actor.latestSnapshot },
-              },
-            }]
-          : []),
-        ...(actor.inProgressSnapshot
-          ? [{
-              uuid: actor.inProgressSnapshot,
-              generation: 2,
-              owner: SnapshotOwner.ACTOR,
-              durableSnapshot: {
-                status: SnapshotStorageStatus.PENDING,
-                object: { snapshotUri: "" },
-              },
-            }]
-          : []),
-      ],
+      externalSnapshot: actor.latestSnapshot
+        ? { snapshotUri: actor.latestSnapshot }
+        : undefined,
+      inProgressLocalSnapshotName: actor.inProgressSnapshot ?? "",
     },
   };
 }

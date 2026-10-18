@@ -1,5 +1,5 @@
 import { RuntimeState, RuntimeOperation } from "@/generated/kagent/api/v1alpha1/runtime_pb";
-import { ActorState, SnapshotOwner, SnapshotStorageStatus } from "@/generated/ateapi_pb";
+import { ActorState, SandboxClass } from "@/generated/ateapi_pb";
 /**
  * Every operation, exercised against the real gRPC services running in-process.
  *
@@ -411,11 +411,7 @@ describe("the cluster", () => {
                 apiVersion: "ate.dev/v1alpha1", kind: "WorkerPool",
                 value: {
                   metadata: { namespace: "kagent", name: "pool" },
-                  spec: {
-                    replicas: 2,
-                    workerImage: "ateom:1",
-                    sandboxClasses: [{ name: "gvisor" }],
-                  },
+                  spec: { replicas: 2, workerImage: "ateom:1" },
                   status: { replicas: 1, readyReplicas: 1 },
                 },
               },
@@ -429,19 +425,8 @@ describe("the cluster", () => {
                   goldenTag: { atespace: "ate-golden", name: "golden" },
                 },
               },
-              workerSelector: {
-                matchLabels: {
-                  zone: "east",
-                  "kagent.dev/worker-pool-name": "pool",
-                  "kagent.dev/worker-pool-namespace": "kagent",
-                } as { [key: string]: string },
-              },
-            },
-            {
-              metadata: { atespace: "kagent", name: "unplaced" },
-              workerSelector: {
-                matchLabels: { pool: "elsewhere" } as { [key: string]: string },
-              },
+              sandboxConfig: { sandboxClass: SandboxClass.GVISOR },
+              workerSelector: { matchLabels: { zone: "east", pool: "agents" } },
             },
           ],
         }),
@@ -457,44 +442,8 @@ describe("the cluster", () => {
                 workerPool: "pool",
                 workerPodIps: ["10.0.0.1", "fd00::1"],
               },
-              snapshots: [
-                {
-                  uuid: "stale",
-                  generation: 1,
-                  owner: SnapshotOwner.ACTOR,
-                  durableSnapshot: {
-                    status: SnapshotStorageStatus.COMPLETED,
-                    object: { snapshotUri: "s3://stale" },
-                  },
-                },
-                {
-                  uuid: "current",
-                  generation: 2,
-                  owner: SnapshotOwner.ACTOR,
-                  durableSnapshot: {
-                    status: SnapshotStorageStatus.COMPLETED,
-                    object: { snapshotUri: "s3://snapshot" },
-                  },
-                },
-                {
-                  uuid: "tag-owned",
-                  generation: 4,
-                  owner: SnapshotOwner.TAG,
-                  durableSnapshot: {
-                    status: SnapshotStorageStatus.COMPLETED,
-                    object: { snapshotUri: "s3://tag" },
-                  },
-                },
-                {
-                  uuid: "next-snapshot",
-                  generation: 3,
-                  owner: SnapshotOwner.ACTOR,
-                  durableSnapshot: {
-                    status: SnapshotStorageStatus.PENDING,
-                    object: { snapshotUri: "s3://pending" },
-                  },
-                },
-              ],
+              externalSnapshot: { snapshotUri: "s3://snapshot" },
+              inProgressLocalSnapshotName: "next-snapshot",
             },
           }],
         }),
@@ -502,23 +451,15 @@ describe("the cluster", () => {
     });
 
     const [summary, actors] = await Promise.all([apiClient.substrate.summary(), apiClient.substrate.actors({})]);
-    expect(summary.workerPools).toEqual([{
-      namespace: "kagent",
-      name: "pool",
-      replicas: 2,
-      ateomImage: "ateom:1",
-      sandboxClass: "gvisor",
-    }]);
+    expect(summary.workerPools).toEqual([{ namespace: "kagent", name: "pool", replicas: 2, ateomImage: "ateom:1" }]);
     expect(summary.actorTemplates[0]).toEqual({
       atespace: "kagent",
       name: "tpl",
       phase: "Ready",
       goldenTag: "ate-golden/golden",
       sandboxClass: "gvisor",
-      workerSelector: "kagent.dev/worker-pool-name=pool,kagent.dev/worker-pool-namespace=kagent,zone=east",
+      workerSelector: "pool=agents,zone=east",
     });
-    // A selector that names no inventoried pool does not borrow another pool's class.
-    expect(summary.actorTemplates[1]?.sandboxClass).toBeUndefined();
     // The request succeeded; the runtime halves may be incomplete. That is a
     // message to put beside the data, not an error to throw.
     expect(summary.ateApiError).toMatch(/ate-api/);
@@ -566,7 +507,6 @@ describe("the cluster", () => {
       const { actorTemplates } = await apiClient.substrate.summary();
       expect(actorTemplates[0].phase).toBe(phase);
       expect(actorTemplates[0].workerSelector).toBeUndefined();
-      expect(actorTemplates[0].sandboxClass).toBeUndefined();
     },
   );
 
@@ -576,6 +516,8 @@ describe("the cluster", () => {
     [ActorState.RUNNING, "Running"],
     [ActorState.SUSPENDING, "Suspending"],
     [ActorState.SUSPENDED, "Suspended"],
+    [ActorState.PAUSING, "Pausing"],
+    [ActorState.PAUSED, "Paused"],
     [ActorState.CRASHED, "ACTOR_STATE_CRASHED"],
     [ActorState.DELETING, "ACTOR_STATE_DELETING"],
     [ActorState.REVERTING, "Reverting"],
@@ -654,6 +596,7 @@ describe("the cluster", () => {
                   goldenTag: { atespace: "ate-golden", name: "golden" },
                 },
               },
+              sandboxConfig: { sandboxClass: SandboxClass.GVISOR },
               workerSelector: { matchLabels: { zone: "east", pool: "agents" } },
             },
           ],

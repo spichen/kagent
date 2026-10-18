@@ -9,10 +9,10 @@ import (
 	"testing/synctest"
 	"time"
 
+	atev1alpha1 "github.com/agent-substrate/substrate/pkg/api/v1alpha1"
+	"github.com/agent-substrate/substrate/pkg/proto/ateapipb"
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/require"
-	atev1alpha1 "go.ate.dev/substrate/pkg/api/v1alpha1"
-	"go.ate.dev/substrate/pkg/proto/ateapipb"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/proto"
@@ -222,7 +222,7 @@ func TestRuntimePreparationFailureSanitizesErrors(t *testing.T) {
 		{name: "microvm", class: atev1alpha1.SandboxClassMicroVM, configName: "microvm", wantClass: "microvm"},
 	} {
 		t.Run(test.name, func(t *testing.T) {
-			failure := runtimePreparationFailure(status.Error(codes.FailedPrecondition, "private-backend-detail"), test.class)
+			failure := runtimePreparationFailure(status.Error(codes.FailedPrecondition, "private-backend-detail"), test.configName, test.class)
 			require.Equal(t, kagentv1alpha3.AgentConditionReady, failure.Condition)
 			require.True(t, failure.Retryable)
 			require.Contains(t, failure.Message, `SandboxConfig "`+test.configName+`"`)
@@ -545,8 +545,8 @@ func newPreparationTestCollections(t *testing.T, workerPool string) (Collections
 	harnesses := krt.NewStaticCollection(nil, []*kagentv1alpha3.Harness{runtimeHarness}, opts.WithName("Harnesses")...)
 	mock := krttest.NewMock(t, []any{
 		template,
-		&atev1alpha1.WorkerPool{ObjectMeta: metav1.ObjectMeta{Namespace: "team-a", Name: "gvisor"}, Spec: atev1alpha1.WorkerPoolSpec{SandboxClasses: []atev1alpha1.WorkerPoolSandboxClass{{Name: atev1alpha1.SandboxClassGvisor}}}},
-		&atev1alpha1.WorkerPool{ObjectMeta: metav1.ObjectMeta{Namespace: "team-a", Name: "microvm"}, Spec: atev1alpha1.WorkerPoolSpec{SandboxClasses: []atev1alpha1.WorkerPoolSandboxClass{{Name: atev1alpha1.SandboxClassMicroVM}}}},
+		&atev1alpha1.WorkerPool{ObjectMeta: metav1.ObjectMeta{Namespace: "team-a", Name: "gvisor"}, Spec: atev1alpha1.WorkerPoolSpec{SandboxClass: atev1alpha1.SandboxClassGvisor}},
+		&atev1alpha1.WorkerPool{ObjectMeta: metav1.ObjectMeta{Namespace: "team-a", Name: "microvm"}, Spec: atev1alpha1.WorkerPoolSpec{SandboxClass: atev1alpha1.SandboxClassMicroVM}},
 	})
 	collections := Collections{
 		AgentTemplates:           krttest.GetMockCollection[*kagentv1alpha3.AgentTemplate](mock),

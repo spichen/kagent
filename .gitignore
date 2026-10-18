@@ -226,3 +226,6 @@ python/packages/kagent-adk/tests/fixtures/certs/*.srl
 
 # Weaver live-check report
 /telemetry/conformance/report/
+
+# Local implementation and deployment notes
+/.plans/

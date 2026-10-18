@@ -13,7 +13,7 @@ import (
 
 	"github.com/agent-substrate/env/guest"
 	guestpb "github.com/agent-substrate/env/proto/ateenv/v1alpha"
-	"go.ate.dev/substrate/pkg/proto/ateapipb"
+	"github.com/agent-substrate/substrate/pkg/proto/ateapipb"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/grpc/codes"

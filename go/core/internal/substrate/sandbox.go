@@ -8,8 +8,8 @@ import (
 	"regexp"
 	"strings"
 
-	atev1alpha1 "go.ate.dev/substrate/pkg/api/v1alpha1"
-	"go.ate.dev/substrate/pkg/proto/ateapipb"
+	atev1alpha1 "github.com/agent-substrate/substrate/pkg/api/v1alpha1"
+	"github.com/agent-substrate/substrate/pkg/proto/ateapipb"
 	"k8s.io/apimachinery/pkg/api/resource"
 	"k8s.io/apimachinery/pkg/types"
 
@@ -48,7 +48,8 @@ func SandboxActorTemplate(template *v1alpha3.SandboxTemplate, class atev1alpha1.
 			return nil, "", nil, fmt.Errorf("invalid sandbox %s limit %q", name, value)
 		}
 	}
-	if err := validateSandboxClass(class); err != nil {
+	config, err := sandboxConfigForClass(class)
+	if err != nil {
 		return nil, "", nil, err
 	}
 	if class == "" {
@@ -79,6 +80,7 @@ func SandboxActorTemplate(template *v1alpha3.SandboxTemplate, class atev1alpha1.
 	revision := hex.EncodeToString(digest[:])
 	result := &ateapipb.ActorTemplate{
 		Metadata:       &ateapipb.ResourceMetadata{Atespace: template.Namespace, Name: "sandbox-" + revision[:40]},
+		SandboxConfig:  config,
 		WorkerSelector: workerSelectorForPool(types.NamespacedName{Namespace: template.Namespace, Name: template.Spec.Substrate.WorkerPoolRef.Name}),
 		Resources:      &ateapipb.Resources{Limits: []*ateapipb.Limits{{Name: "cpu", Quantity: policy.CPU}, {Name: "memory", Quantity: policy.Memory}}},
 		Containers: []*ateapipb.Container{{
@@ -86,7 +88,7 @@ func SandboxActorTemplate(template *v1alpha3.SandboxTemplate, class atev1alpha1.
 			Command:      []string{"/run/kagent/guest/usr/local/bin/kagent-sandbox-guest"},
 			Args:         []string{"--listen=:80", "--workspace=/data/workspace", "--log-dir=/data/guest-logs"},
 			Env:          environment,
-			WakeupProbe:  &ateapipb.WakeupProbe{HttpGet: &ateapipb.HttpGetAction{Path: "/readyz", Port: 80}, TimeoutSeconds: 30},
+			WakeupProbe:  &ateapipb.ContainerWakeupProbe{HttpGet: &ateapipb.HTTPGetAction{Path: "/readyz", Port: 80}, TimeoutSeconds: 30},
 			VolumeMounts: []*ateapipb.VolumeMount{{Name: durableDataVolume, MountPath: durableDataMount}, {Name: "guest", MountPath: "/run/kagent/guest"}, {Name: egressTrustVolume, MountPath: egressTrustMount}},
 		}},
 		Volumes: []*ateapipb.Volume{
@@ -95,8 +97,10 @@ func SandboxActorTemplate(template *v1alpha3.SandboxTemplate, class atev1alpha1.
 			{Name: egressTrustVolume, SystemInfo: &ateapipb.SystemInfoVolumeSource{DataSources: []*ateapipb.SystemInfoDataSource{{TrustBundle: &ateapipb.TrustBundleDataSource{Names: []string{"egress-mitm.ate.dev"}, Path: "trust-bundle.pem"}}}}},
 		},
 		SnapshotConfig: &ateapipb.SnapshotConfig{
-			StorageLocation:   template.Spec.Substrate.SnapshotPolicy.Location,
-			PreferredFidelity: ateapipb.SnapshotFidelity_SNAPSHOT_FIDELITY_MEMORY,
+			StorageLocation: template.Spec.Substrate.SnapshotPolicy.Location,
+			// Substrate 0.5 applies one scope to pause and suspend. Keep process memory
+			// for both until lifecycle v2 separates them again.
+			OnCommit: ateapipb.SnapshotContentScope_SNAPSHOT_CONTENT_SCOPE_FULL,
 		},
 	}
 	return result, revision, snapshot, nil

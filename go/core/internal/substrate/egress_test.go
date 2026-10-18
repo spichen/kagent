@@ -4,7 +4,7 @@ import (
 	"context"
 	"testing"
 
-	"go.ate.dev/substrate/pkg/proto/ateapipb"
+	"github.com/agent-substrate/substrate/pkg/proto/ateapipb"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
@@ -18,8 +18,8 @@ func TestEnsureActorEgressPolicyRetriesLostResponse(t *testing.T) {
 	policy := &ateapipb.EgressPolicy{
 		Metadata: &ateapipb.ResourceMetadata{Atespace: "team-a", Name: "default"},
 		Rules: []*ateapipb.EgressRule{
-			{Http: &ateapipb.HttpRule{Hostnames: []string{"api.example.com"}}},
-			{Https: &ateapipb.HttpsRule{Hostnames: []string{"api.example.com"}}},
+			{Http: &ateapipb.HTTPRule{Hostnames: []string{"api.example.com"}}},
+			{Https: &ateapipb.HTTPSRule{Hostnames: []string{"api.example.com"}}},
 		},
 	}
 	require.ErrorIs(t, client.EnsureActorEgressPolicy(t.Context(), "team-a", "actor", policy), context.DeadlineExceeded)

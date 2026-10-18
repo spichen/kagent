@@ -239,10 +239,12 @@ const atAGlance = (count: number) => compactNumber.format(count).replace("K", "k
 const ACTOR_STATES = [
   "Crashed",
   "Deleting",
+  "Pausing",
   "Resuming",
-  "Reverting",
   "Running",
+  "Snapshotting",
   "Suspending",
+  "Paused",
   "Suspended",
   "Unknown",
 ];

@@ -9,7 +9,7 @@ import (
 	"strconv"
 	"strings"
 
-	"go.ate.dev/substrate/pkg/proto/ateapipb"
+	"github.com/agent-substrate/substrate/pkg/proto/ateapipb"
 	"k8s.io/apimachinery/pkg/util/validation"
 
 	"github.com/kagent-dev/kagent/go/core/internal/egress"
@@ -76,9 +76,9 @@ func ActorEgressPolicy(atespace string, destinations []string, credentials []egr
 		// Keep exactly one rule per host and port so an overlapping rule cannot
 		// bypass credential replacement.
 		if target.scheme == "https" {
-			policy.Rules = append(policy.Rules, &ateapipb.EgressRule{Https: &ateapipb.HttpsRule{Hostnames: []string{target.hostname}, Ports: ports, Effects: effects[target.hostname]}})
+			policy.Rules = append(policy.Rules, &ateapipb.EgressRule{Https: &ateapipb.HTTPSRule{Hostnames: []string{target.hostname}, Ports: ports, Effects: effects[target.hostname]}})
 		} else {
-			policy.Rules = append(policy.Rules, &ateapipb.EgressRule{Http: &ateapipb.HttpRule{Hostnames: []string{target.hostname}, Ports: ports, Effects: effects[target.hostname]}})
+			policy.Rules = append(policy.Rules, &ateapipb.EgressRule{Http: &ateapipb.HTTPRule{Hostnames: []string{target.hostname}, Ports: ports, Effects: effects[target.hostname]}})
 		}
 	}
 	if len(policy.Rules) > 256 {

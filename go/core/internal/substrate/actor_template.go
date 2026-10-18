@@ -6,8 +6,8 @@ import (
 	"strings"
 	"unicode/utf8"
 
-	atev1alpha1 "go.ate.dev/substrate/pkg/api/v1alpha1"
-	"go.ate.dev/substrate/pkg/proto/ateapipb"
+	atev1alpha1 "github.com/agent-substrate/substrate/pkg/api/v1alpha1"
+	"github.com/agent-substrate/substrate/pkg/proto/ateapipb"
 	"go.opentelemetry.io/otel/attribute"
 	semconv "go.opentelemetry.io/otel/semconv/v1.43.0"
 	"google.golang.org/protobuf/proto"
@@ -84,25 +84,21 @@ func ActorTemplateForRevision(spec *translator.Revision, revisionID translator.R
 	if len(actorEnv) > 32 {
 		return nil, fmt.Errorf("runtime revision has %d environment variables; Substrate supports at most 32", len(actorEnv))
 	}
-	if err := validateSandboxClass(spec.SandboxClass); err != nil {
+	sandboxConfig, err := sandboxConfigForClass(spec.SandboxClass)
+	if err != nil {
 		return nil, err
 	}
 
 	template := &ateapipb.ActorTemplate{
-		Metadata: &ateapipb.ResourceMetadata{Atespace: spec.Namespace, Name: name},
-		// The pool selected below owns the sandbox class. Substrate books these
-		// limits against that pool's remaining capacity.
-		Resources: &ateapipb.Resources{Limits: []*ateapipb.Limits{
-			{Name: "cpu", Quantity: translator.DefaultActorCPU},
-			{Name: "memory", Quantity: translator.DefaultActorMemory},
-		}},
+		Metadata:      &ateapipb.ResourceMetadata{Atespace: spec.Namespace, Name: name},
+		SandboxConfig: sandboxConfig,
 		Containers: []*ateapipb.Container{{
 			Name:    defaultContainerName,
 			Image:   spec.Image,
 			Command: append([]string(nil), spec.Command...),
 			Args:    append([]string(nil), spec.Args...),
 			Env:     actorEnv,
-			WakeupProbe: &ateapipb.WakeupProbe{HttpGet: &ateapipb.HttpGetAction{
+			WakeupProbe: &ateapipb.ContainerWakeupProbe{HttpGet: &ateapipb.HTTPGetAction{
 				Path: "/readyz",
 				Port: 8081,
 			}, TimeoutSeconds: 30},
@@ -115,10 +111,9 @@ func ActorTemplateForRevision(spec *translator.Revision, revisionID translator.R
 		WorkerSelector: workerSelectorForPool(workerKey),
 		SnapshotConfig: &ateapipb.SnapshotConfig{
 			StorageLocation: spec.SnapshotLocation,
-			// Memory is the ceiling for both the node-local pause and the durable
-			// suspend. The runtime may capture less. Forks still require a
-			// volumes-only snapshot.
-			PreferredFidelity: ateapipb.SnapshotFidelity_SNAPSHOT_FIDELITY_MEMORY,
+			// Substrate 0.5 applies one scope to pause and suspend. Keep process memory
+			// for both until lifecycle v2 separates them again.
+			OnCommit: ateapipb.SnapshotContentScope_SNAPSHOT_CONTENT_SCOPE_FULL,
 		},
 		Volumes: []*ateapipb.Volume{
 			{Name: durableDataVolume, DurableDir: &ateapipb.DurableDirVolumeSource{}},
@@ -158,6 +153,7 @@ func actorTemplateSpec(template *ateapipb.ActorTemplate) *ateapipb.ActorTemplate
 		Containers:     template.GetContainers(),
 		Volumes:        template.GetVolumes(),
 		SnapshotConfig: template.GetSnapshotConfig(),
+		SandboxConfig:  template.GetSandboxConfig(),
 		Resources:      template.GetResources(),
 	}
 }
@@ -229,11 +225,19 @@ func actorTemplateEnvFromPodEnv(environment []corev1.EnvVar) ([]*ateapipb.EnvVar
 	return result, nil
 }
 
-func validateSandboxClass(class atev1alpha1.SandboxClass) error {
+func sandboxConfigForClass(class atev1alpha1.SandboxClass) (*ateapipb.SandboxConfig, error) {
 	switch class {
-	case "", atev1alpha1.SandboxClassGvisor, atev1alpha1.SandboxClassMicroVM:
-		return nil
+	case "", atev1alpha1.SandboxClassGvisor:
+		return &ateapipb.SandboxConfig{
+			SandboxClass: ateapipb.SandboxClass_SANDBOX_CLASS_GVISOR,
+			ConfigName:   "gvisor-default",
+		}, nil
+	case atev1alpha1.SandboxClassMicroVM:
+		return &ateapipb.SandboxConfig{
+			SandboxClass: ateapipb.SandboxClass_SANDBOX_CLASS_MICROVM,
+			ConfigName:   "microvm",
+		}, nil
 	default:
-		return fmt.Errorf("unsupported sandbox class %q", class)
+		return nil, fmt.Errorf("unsupported sandbox class %q", class)
 	}
 }

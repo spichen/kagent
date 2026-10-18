@@ -4,28 +4,12 @@ import (
 	"context"
 	"fmt"
 
-	"go.ate.dev/substrate/pkg/proto/ateapipb"
+	"github.com/agent-substrate/substrate/pkg/proto/ateapipb"
 )
 
 // How many pages a drain will read before giving up: at ate-api's ceiling of 1,000
 // rows a page, ten million rows.
 const maxDrainPages = 10_000
-
-// listOptions carries a page request. A zero page size is omitted so the server
-// default applies; zero is below Substrate's minimum for an explicit size.
-func listOptions(pageSize int32, pageToken string) *ateapipb.ListOptions {
-	if pageSize <= 0 && pageToken == "" {
-		return nil
-	}
-	options := &ateapipb.ListOptions{}
-	if pageSize > 0 {
-		options.PageSize = pageSize
-	}
-	if pageToken != "" {
-		options.PageToken = pageToken
-	}
-	return options
-}
 
 // AdvancePageToken moves a paging loop on, refusing a token that repeats itself: a
 // server answering with the token it was given is not advancing, and a loop that
@@ -73,8 +57,9 @@ func (c *Client) ListActorsPage(ctx context.Context, atespace string, pageSize i
 	ctx, cancel := c.callCtx(ctx)
 	defer cancel()
 	resp, err := c.ListActors(ctx, &ateapipb.ListActorsRequest{
-		Atespace: atespace,
-		Options:  listOptions(pageSize, pageToken),
+		Atespace:  atespace,
+		PageSize:  pageSize,
+		PageToken: pageToken,
 	})
 	if err != nil {
 		return nil, "", err
@@ -91,7 +76,8 @@ func (c *Client) ListWorkersPage(ctx context.Context, pageSize int32, pageToken 
 	ctx, cancel := c.callCtx(ctx)
 	defer cancel()
 	resp, err := c.ListWorkers(ctx, &ateapipb.ListWorkersRequest{
-		Options: listOptions(pageSize, pageToken),
+		PageSize:  pageSize,
+		PageToken: pageToken,
 	})
 	if err != nil {
 		return nil, "", err
@@ -108,8 +94,8 @@ func (c *Client) ListActorTemplatesPage(ctx context.Context, atespace string, pa
 	ctx, cancel := c.callCtx(ctx)
 	defer cancel()
 	resp, err := c.ControlClient.ListActorTemplates(ctx, &ateapipb.ListActorTemplatesRequest{
-		Atespace: atespace,
-		Options:  listOptions(0, pageToken),
+		Atespace:  atespace,
+		PageToken: pageToken,
 	})
 	if err != nil {
 		return nil, "", err
