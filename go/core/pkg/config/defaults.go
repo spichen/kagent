@@ -17,7 +17,7 @@ func DefaultCLI(cfg *apiv1.CLIConfig) {
 		Connection: &apiv1.ConnectionConfig{ApiUrl: new("http://localhost:8083"), GatewayUrl: new("http://localhost:8083"), Namespace: new("kagent"), UserId: new("admin@kagent.dev"), Timeout: durationpb.New(5 * time.Minute)},
 		Output:     &apiv1.OutputConfig{Format: new("table")},
 		Logging:    &apiv1.LoggingConfig{Level: new("info")},
-		Install:    &apiv1.InstallConfig{DefaultModelProvider: new("OpenAI"), BundledPostgresImage: new("postgres:18-alpine@sha256:9a8afca54e7861fd90fab5fdf4c42477a6b1cb7d293595148e674e0a3181de15"), Kagent: &apiv1.ChartConfig{Repository: new("oci://ghcr.io/kagent-dev/kagent/helm/"), Version: new(version.Version)}, Substrate: &apiv1.ChartConfig{Repository: new("oci://ghcr.io/spichen/substrate/helm/"), Version: new(version.SubstrateVersion)}},
+		Install:    &apiv1.InstallConfig{DefaultModelProvider: new("OpenAI"), BundledPostgresImage: new("postgres:18-alpine@sha256:9a8afca54e7861fd90fab5fdf4c42477a6b1cb7d293595148e674e0a3181de15"), Kagent: &apiv1.ChartConfig{Repository: new("oci://ghcr.io/spichen/kagent/helm/"), Version: new(version.Version)}, Substrate: &apiv1.ChartConfig{Repository: new("oci://ghcr.io/spichen/substrate/helm/"), Version: new(version.SubstrateVersion)}},
 		Database:   defaultDatabase(),
 	})
 	if cfg.Install.PodCertificate == nil {
