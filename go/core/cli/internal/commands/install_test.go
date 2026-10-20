@@ -10,7 +10,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"sigs.k8s.io/yaml"
 
-	apiv1 "github.com/kagent-dev/kagent/go/api/gen/kagent/api/v1alpha1"
+	configv1 "github.com/kagent-dev/kagent/go/api/gen/kagent/config/v1"
 	"github.com/kagent-dev/kagent/go/core/cli/internal/connection"
 	"github.com/kagent-dev/kagent/go/core/pkg/config"
 )
@@ -93,7 +93,7 @@ func TestBundledPostgresImage(t *testing.T) {
 }
 
 func TestBundledPostgresAssets(t *testing.T) {
-	cfg := &apiv1.CLIConfig{}
+	cfg := &configv1.CLIConfig{}
 	config.DefaultCLI(cfg)
 	manifest, err := bundledPostgresManifest("demo", cfg.Install.GetBundledPostgresImage())
 	require.NoError(t, err)
@@ -122,19 +122,18 @@ func TestInstallDatabaseAndHelmOverrides(t *testing.T) {
 	cmd := NewInstallCmd()
 	require.NotNil(t, cmd.Flags().Lookup("skip-database-setup"))
 
-	chart := &apiv1.ChartConfig{Repository: new("./charts/"), Version: new("v1.2.3"), ValuesFiles: []string{"custom.yaml"}}
+	chart := &configv1.ChartConfig{Repository: new("./charts/"), Version: new("v1.2.3"), ValuesFiles: []string{"custom.yaml"}}
 	config := setupHelmConfig(chart, "OpenAI", "fake")
 	require.Contains(t, config.inlineValues, "substrateClientCertificate:\n    enabled: true")
 	require.Equal(t, []string{"custom.yaml"}, config.valuesFiles)
 	require.Equal(t, "./charts/", config.registry)
 	require.Equal(t, "v1.2.3", config.version)
-	require.Empty(t, crdChartValues(config.values))
 	require.Equal(t, []string{"global.imageRegistry=mirror.example", "postgresClients[0]=demo/kagent-controller=kagent_owner_user", "postgresClients[1]=demo/kagent-controller=kagent_readwrite_user"}, podCertificateChartValues([]string{"rustfs.enabled=false", "global.imageRegistry=mirror.example"}, "demo", true))
 }
 
 func TestInstallUsesSeparateSubstrateReleases(t *testing.T) {
 	originalPrepareSubstrate := prepareSubstrate
-	prepareSubstrate = func(context.Context) error { return nil }
+	prepareSubstrate = func(context.Context, string) error { return nil }
 	t.Cleanup(func() { prepareSubstrate = originalPrepareSubstrate })
 
 	dir := t.TempDir()
@@ -188,4 +187,29 @@ func TestInstallValuesFilesFollowDefaults(t *testing.T) {
 	values, err := os.ReadFile(valuesPath)
 	require.NoError(t, err)
 	require.Equal(t, defaults, string(values))
+}
+
+func TestSubstrateInstallValues(t *testing.T) {
+	for _, namespace := range []string{"kagent", "team-a"} {
+		t.Run(namespace, func(t *testing.T) {
+			var values struct {
+				AteAPI struct {
+					Authorization struct {
+						BootstrapOwners []string `json:"bootstrapOwners"`
+					} `json:"authorization"`
+				} `json:"ateApi"`
+				CredentialProvider struct {
+					NamespacePolicies []struct {
+						Atespace          string   `json:"atespace"`
+						AllowedNamespaces []string `json:"allowedNamespaces"`
+					} `json:"namespacePolicies"`
+				} `json:"credentialProvider"`
+			}
+			require.NoError(t, yaml.Unmarshal([]byte(substrateInstallValues(namespace)), &values))
+			require.Equal(t, []string{"spiffe://cluster.local/ns/" + namespace + "/sa/kagent-controller"}, values.AteAPI.Authorization.BootstrapOwners)
+			require.Len(t, values.CredentialProvider.NamespacePolicies, 1)
+			require.Equal(t, namespace, values.CredentialProvider.NamespacePolicies[0].Atespace)
+			require.Equal(t, []string{namespace}, values.CredentialProvider.NamespacePolicies[0].AllowedNamespaces)
+		})
+	}
 }
