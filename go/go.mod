@@ -505,4 +505,4 @@ tool (
 	sigs.k8s.io/controller-tools/cmd/controller-gen
 )
 
-replace go.ate.dev/substrate => github.com/spichen/substrate v0.0.0-20261018133208-7542bb219761
+replace go.ate.dev/substrate => github.com/spichen/substrate v0.4.1-0.20261020181632-e989fa1a31e8
