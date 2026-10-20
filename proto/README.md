@@ -1,8 +1,9 @@
 # Upstream schemas
 
 `ateapi.proto` is an unmodified copy of
-`pkg/proto/ateapipb/ateapi.proto` from `github.com/kagent-dev/substrate` at
-`v0.6.0-alpha3`, matching the replacement in `go/go.mod`. Update them together.
+`pkg/proto/ateapipb/ateapi.proto` from `github.com/spichen/substrate` at
+`e989fa1a` (`codex/shared-volumes-combined`), matching the replacement in
+`go/go.mod`. Update them together.
 Go uses the upstream generated package; Buf generates the imported TypeScript
 types for the UI. Do not edit the vendored schema. Upstream alpha API changes
 are excluded from kagent's protobuf compatibility check; review them with the

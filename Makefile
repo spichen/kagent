@@ -98,7 +98,7 @@ SANDBOX_GUEST_IMG ?= $(DOCKER_REGISTRY)/$(DOCKER_REPO)/$(SANDBOX_GUEST_IMAGE_NAM
 AWK ?= $(shell command -v gawk || command -v awk)
 TOOLS_GO_VERSION ?= $(shell $(AWK) '/^go / { print $$2 }' go/go.mod)
 export GOTOOLCHAIN=go$(TOOLS_GO_VERSION)
-SUBSTRATE_VERSION ?= $(shell $(AWK) '/github\.com\/kagent-dev\/substrate/ { print substr($$5, 2) }' go/go.mod)
+SUBSTRATE_VERSION ?= $(shell $(AWK) '/github\.com\/spichen\/substrate/ { print substr($$5, 2) }' go/go.mod)
 
 # Version information for the build
 LDFLAGS := -X github.com/$(DOCKER_REPO)/go/core/internal/version.Version=$(VERSION) \
@@ -252,7 +252,7 @@ init-git-hooks:  ## Use the tracked version of Git hooks from this repo
 
 # Substrate
 # Override for local development with locally published charts.
-SUBSTRATE_REPO ?= oci://ghcr.io/kagent-dev/substrate/helm
+SUBSTRATE_REPO ?= oci://ghcr.io/spichen/substrate/helm
 SUBSTRATE_PODCERT_REPO ?= $(SUBSTRATE_REPO)
 SUBSTRATE_PODCERT_VERSION ?= $(SUBSTRATE_VERSION)
 
