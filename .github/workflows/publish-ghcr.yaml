@@ -51,9 +51,6 @@ jobs:
           - target: build-ui
             image: ui
             var: UI_IMG
-          - target: build-kagent-adk
-            image: kagent-adk
-            var: KAGENT_ADK_IMG
           - target: build-golang-adk
             image: golang-adk
             var: GOLANG_ADK_IMG
