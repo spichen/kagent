@@ -96,9 +96,19 @@ jobs:
           DOCKER_REGISTRY: ghcr.io
           DOCKER_BUILDER: docker buildx build
           DOCKER_BUILD_ARGS: --push --platform linux/amd64,linux/arm64
+          RUNTIME_IMAGE_METADATA_DIR: ${{ runner.temp }}/runtime-images
         run: |
           set -o errexit -o nounset -o pipefail
           make "${{ matrix.target }}" "${{ matrix.var }}=ghcr.io/spichen/kagent/${{ matrix.image }}:${VERSION}"
+
+      # The chart bakes the harness image digests recorded by these builds, and
+      # the charts job runs on a different runner.
+      - name: Upload runtime image metadata
+        uses: actions/upload-artifact@v4
+        with:
+          name: runtime-image-metadata-${{ matrix.image }}
+          path: ${{ runner.temp }}/runtime-images/${{ matrix.image }}.json
+          if-no-files-found: ignore
 
   charts:
     needs:
@@ -116,6 +126,13 @@ jobs:
       - name: Install Helm
         uses: azure/setup-helm@v4
 
+      - name: Download runtime image metadata
+        uses: actions/download-artifact@v4
+        with:
+          pattern: runtime-image-metadata-*
+          merge-multiple: true
+          path: ${{ runner.temp }}/runtime-images
+
       - name: Log in to GHCR
         uses: docker/login-action@v3
         with:
@@ -129,6 +146,8 @@ jobs:
           VERSION: ${{ needs.prepare.outputs.version }}
           HELM_REPO: oci://ghcr.io/spichen
           HELM_EXPERIMENTAL_OCI: "1"
+          RUNTIME_IMAGE_METADATA_DIR: ${{ runner.temp }}/runtime-images
+          RUNTIME_IMAGE_REPOSITORY: ghcr.io/spichen/kagent
         run: |
           set -o errexit -o nounset -o pipefail
           echo "${{ secrets.GITHUB_TOKEN }}" \
